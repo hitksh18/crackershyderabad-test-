@@ -12,9 +12,12 @@ dist
 dist-ssr
 *.local
 
-# Environment variables (never commit secrets)
-.env
-.env.*
+# Environment variables
+# client/.env contains PUBLIC Firebase web config (ships in browser bundle)
+# and is committed intentionally for deterministic CI builds.
+# Only private/local overrides are ignored.
+.env.local
+.env.*.local
 !.env.example
 
 # Editor directories and files
