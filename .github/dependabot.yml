@@ -1,0 +1,21 @@
+version: 2
+
+# Weekly dependency scanning for both npm trees plus the deploy workflow.
+# Alerts and patch PRs arrive from GitHub at no cost; nothing here deploys.
+updates:
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: npm
+    directory: "/client"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly

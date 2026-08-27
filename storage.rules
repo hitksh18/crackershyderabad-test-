@@ -1,0 +1,70 @@
+rules_version = '2';
+
+// Crackers Hyderabad — Cloud Storage rules
+//
+// Product and site imagery is public by design; it is what the shop displays.
+// Everything else is not. Invoices in particular carry a customer's name,
+// phone, address and order contents — they previously allowed world read and
+// let ANY signed-in user overwrite or delete ANY other customer's file.
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Missing role documents are normal, so guard the lookup rather than
+    // letting it error the whole rule out.
+    function roleOf() {
+      return isSignedIn() &&
+             firestore.exists(/databases/(default)/documents/roles/$(request.auth.uid))
+        ? firestore.get(/databases/(default)/documents/roles/$(request.auth.uid)).data.role
+        : '';
+    }
+
+    function isAdmin() {
+      return roleOf() == 'admin';
+    }
+
+    function isStaff() {
+      return roleOf() in ['admin', 'sales', 'billing', 'packer', 'mod'];
+    }
+
+    // Uploads must be real images and must not be used as free file hosting.
+    function isImageUnder(maxBytes) {
+      return request.resource != null
+             && request.resource.contentType.matches('image/(jpeg|png|webp|gif)')
+             && request.resource.size < maxBytes;
+    }
+
+    match /products/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAdmin() && isImageUnder(5 * 1024 * 1024);
+      allow delete: if isAdmin();
+    }
+
+    match /hero-backgrounds/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAdmin() && isImageUnder(8 * 1024 * 1024);
+      allow delete: if isAdmin();
+    }
+
+    match /hero-logos/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAdmin() && isImageUnder(2 * 1024 * 1024);
+      allow delete: if isAdmin();
+    }
+
+    // Customer documents. Staff only — a customer receives their invoice by
+    // email and through the app, never by reading the bucket directly.
+    match /invoices/{allPaths=**} {
+      allow read: if isStaff();
+      allow write: if isStaff() && request.resource.size < 10 * 1024 * 1024;
+      allow delete: if isAdmin();
+    }
+
+    // Anything not matched above is denied by default. Keep it that way:
+    // do not add a catch-all rule.
+  }
+}

@@ -1,0 +1,41 @@
+name: Deploy to Hostinger
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Generate sitemap
+        run: node scripts/generate-sitemap.mjs
+
+      - name: Build client
+        run: |
+          npm ci --prefix client --no-audit --no-fund
+          npm run build --prefix client
+
+      - name: Package
+        run: |
+          mkdir -p package/dist
+          cp -a client/dist/. package/dist/
+          cp -a api package/api
+
+      - name: Upload and deploy over HTTPS
+        env:
+          TOKEN: ${{ secrets.DEPLOY_TOKEN }}
+          HOST: ${{ secrets.DEPLOY_HOST }}
+        run: |
+          tar -czf /tmp/deploy-latest.tar.gz -C package .
+          curl -fsS -X POST \
+            -H "x-deploy-token: ${TOKEN}" \
+            -H "Content-Type: application/gzip" \
+            --data-binary @/tmp/deploy-latest.tar.gz \
+            "https://${HOST}/api/deploy"

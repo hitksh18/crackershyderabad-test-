@@ -1,0 +1,262 @@
+rules_version = '2';
+
+// Crackers Hyderabad — Firestore security rules
+//
+// Principle: customer records (orders, users, roles) are private. Staff read
+// them because their job requires it; a customer reaches only their own.
+//
+// The one deliberate exception is `orders.get`, which stays public so a guest
+// who checked out without an account can still track their order. That is a
+// capability model, and it is only safe while the identifier is unguessable:
+// order IDs are 20-character Firestore auto-IDs.
+//
+// Tracking codes are NOT unguessable — they are plain running numbers (CH1001,
+// CH1002, ...), which is what the customer asked to be printed on the order. A
+// second factor carries the weight instead: the last four digits of the phone
+// number on the order, checked server-side by POST /api/orders/track, which
+// rate-limits and locks out repeated failures. Staff skip the digits because
+// their Firebase token already proves who they are.
+//
+// So `trackingCodes.get` must stay staff-only. Opening it would hand an
+// attacker walking CH1001, CH1002, ... the order's unguessable auto-ID, which
+// they could then read straight through the public `orders.get` — stepping
+// around the phone check entirely and harvesting every customer's name, phone,
+// email and delivery address, exactly the leak this file exists to prevent.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isSelf(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Break-glass owner account, independent of the roles collection.
+    function isEmailAdmin() {
+      return isSignedIn() &&
+             request.auth.token.email == 'nikshit647garje@gmail.com';
+    }
+
+    // Missing role documents are normal (every customer starts without one),
+    // so resolve to '' rather than letting the get() error out the rule.
+    function roleOf() {
+      return isSignedIn() &&
+             exists(/databases/$(database)/documents/roles/$(request.auth.uid))
+        ? get(/databases/$(database)/documents/roles/$(request.auth.uid)).data.role
+        : '';
+    }
+
+    function isAdminRole() {
+      return roleOf() == 'admin';
+    }
+
+    function isAdminAny() {
+      return isEmailAdmin() || isAdminRole();
+    }
+
+    function isStaff() {
+      return isEmailAdmin() ||
+             roleOf() in ['admin', 'sales', 'billing', 'packer', 'mod'];
+    }
+
+    function hasVerifiedEmail() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    /** Owner of the order currently being read or written. */
+    function isOrderOwner() {
+      return resource.data.userId == request.auth.uid
+             || (hasVerifiedEmail() && (
+                  resource.data.customer.email == request.auth.token.email ||
+                  resource.data.userEmail == request.auth.token.email
+                ));
+    }
+
+    // Public catalogue. Anything in here is visible to the whole internet, so
+    // it must carry only the figures a shopper is meant to see.
+    match /products/{productId} {
+      allow read: if true;
+      allow write: if isAdminAny();
+    }
+
+    // Wholesale / counter pricing, kept out of the public product document.
+    // offlineMRP and offlineDiscountPrice used to live on `products`, which is
+    // world-readable — the /price-list route guard was the only thing standing
+    // between anyone and the shop's trade margins, and a route guard protects
+    // nothing from a direct Firestore read.
+    match /productPricing/{productId} {
+      allow read: if isStaff();
+      allow write: if isAdminAny();
+    }
+
+    match /orders/{orderId} {
+      // Guest order tracking. Reaching a document requires already knowing its
+      // unguessable ID — see the note at the top of this file.
+      allow get: if true;
+
+      // Enumeration is the real exposure, so listing is limited to staff or to
+      // a query the caller has provably constrained to their own orders.
+      // MyOrders filters on userId first and falls back to customer.email;
+      // both shapes are permitted below and nothing else is.
+      // Email is only accepted as proof of identity once it has been verified —
+      // self-service signup accepts any address, so an unverified claim would
+      // let anyone read the orders of a customer whose address they typed.
+      allow list: if isStaff()
+                  || (isSignedIn() && resource.data.userId == request.auth.uid)
+                  || (hasVerifiedEmail() && resource.data.customer.email == request.auth.token.email);
+
+      // Orders are created ONLY by the API using the Admin SDK, which prices
+      // the cart from the products collection. Allowing the browser to write
+      // this document meant the customer chose their own total, and let anyone
+      // plant a document that the notification endpoints would then send out.
+      allow create: if false;
+
+      // Three tiers, matching what each screen actually does.
+      //
+      //  - admin and mod may edit the order itself (Orders.jsx line 174 writes
+      //    items, total and the admin note).
+      //  - other staff may only move the status along. A packer had no reason
+      //    to be able to rewrite items and total, and previously could.
+      //  - the customer may only cancel their own order, only from a state that
+      //    is still cancellable, and only the cancellation fields. Without
+      //    hasOnly() the same write could change total alongside the status.
+      allow update: if isSignedIn() && (
+        isAdminAny() ||
+        roleOf() == 'mod' ||
+        (
+          isStaff() &&
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['status', 'packedAt', 'updatedAt'])
+        ) ||
+        (
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['status', 'cancelledAt', 'cancelledBy']) &&
+          request.resource.data.status == 'Cancelled' &&
+          resource.data.status in ['Pending', 'Confirmed', 'Processing'] &&
+          isOrderOwner()
+        )
+      );
+
+      allow delete: if isAdminAny();
+    }
+
+    match /roles/{userId} {
+      // A signed-in user resolves their own role on boot; staff surfaces need
+      // to read others. Listing the whole collection is admin-only, matching
+      // the /admin/users route guard.
+      allow get: if isSelf(userId) || isStaff();
+      allow list: if isAdminAny();
+      allow create: if (isSelf(userId) && request.resource.data.role == 'customer')
+                    || isAdminAny();
+      allow update, delete: if isAdminAny();
+    }
+
+    match /users/{userId} {
+      // Profile records hold name, email, phone and wishlist. Own record only,
+      // unless you are staff.
+      allow get: if isSelf(userId) || isStaff();
+      allow list: if isAdminAny();
+      allow create: if isSelf(userId) || isAdminAny();
+      allow update: if isSelf(userId) || isAdminAny();
+      allow delete: if isAdminAny();
+    }
+
+    match /heroSettings/{settingId} {
+      allow read: if true;
+      allow write: if isAdminAny();
+    }
+
+    match /footerSettings/{settingId} {
+      allow read: if true;
+      allow write: if isAdminAny();
+    }
+
+    match /bannerSettings/{settingId} {
+      allow read: if true;
+      allow write: if isAdminAny();
+    }
+
+    match /adminSettings/{settingId} {
+      allow read: if true;
+      allow write: if isAdminAny();
+    }
+
+    match /settings/{settingId} {
+      allow read: if true;
+      allow write: if isAdminAny();
+    }
+
+    match /promotionalBanners/{bannerId} {
+      allow read: if true;
+      allow write: if isAdminAny();
+    }
+
+    // Homepage hero carousel slides. Public so the storefront can render them;
+    // written only from the admin Canvas editor.
+    match /heroSlides/{slideId} {
+      allow read: if true;
+      allow write: if isAdminAny();
+    }
+
+    // Festive deals grid on the homepage. Same capability model as heroSlides.
+    match /festiveDeals/{dealId} {
+      allow read: if true;
+      allow write: if isAdminAny();
+    }
+
+    match /brands/{brandId} {
+      allow read: if true;
+      allow create, update, delete: if isAdminAny();
+    }
+
+    match /trackingCodes/{code} {
+      // Staff only, get and list alike. Codes are sequential, so a public `get`
+      // is a public `code -> orderId` oracle: walk the numbers, collect the
+      // auto-IDs, read the orders through `orders.get`, and the phone-digit
+      // check in POST /api/orders/track never runs. Guests must go through that
+      // endpoint, which reads with the Admin SDK and so is unaffected here.
+      allow get: if isStaff();
+      allow list: if isStaff();
+      // Written by the API alongside the order it points at.
+      allow create: if false;
+      allow update, delete: if isAdminAny();
+    }
+
+    // Feedback is keyed BY the order id, and must never be listable.
+    //
+    // It previously granted `allow read: if true`, which in Firestore covers
+    // `list` as well as `get` — and the documents carried both the raw order id
+    // and the tracking code. Anyone could enumerate the collection, harvest
+    // those identifiers in bulk, and then read every corresponding order
+    // through the public `orders.get`. That single rule defeated the entire
+    // unguessable-identifier model this file depends on.
+    //
+    // A `get` still needs the order id, which the reader must already possess,
+    // so the capability model holds. The document body no longer repeats it.
+    match /feedback/{orderId} {
+      allow get: if true;
+      allow list: if isStaff();
+      allow create: if request.resource.data.rating is number &&
+                      request.resource.data.rating >= 1 &&
+                      request.resource.data.rating <= 5 &&
+                      request.resource.data.keys().hasOnly(['rating', 'comment', 'createdAt']) &&
+                      request.resource.data.comment is string &&
+                      request.resource.data.comment.size() <= 1000 &&
+                      // One review per order, and it cannot be overwritten.
+                      !exists(/databases/$(database)/documents/feedback/$(orderId));
+      allow update, delete: if isAdminAny();
+    }
+
+    // The order counter is now advanced by the API inside the same transaction
+    // that creates the order, so no client needs to touch it. Scoped to the one
+    // document that exists rather than a wildcard, which previously let anyone
+    // create arbitrary counter documents.
+    match /counters/orders {
+      allow get: if isStaff();
+      allow write: if false;
+    }
+  }
+}

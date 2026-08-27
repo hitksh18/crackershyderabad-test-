@@ -1,0 +1,28 @@
+NotoSans-Money-Regular.ttf and NotoSans-Money-Bold.ttf are subsets of Noto Sans.
+
+    Noto Sans
+    Copyright 2022 The Noto Project Authors
+    (https://github.com/notofonts/latin-greek-cyrillic)
+    Licensed under the SIL Open Font License, Version 1.1
+    https://fonts.google.com/specimen/Noto+Sans
+    Full licence text: OFL.txt, alongside this file
+
+Each file has been subset to the sixteen characters an invoice amount can
+contain (" ,-./0123456789" plus U+20B9 RUPEE SIGN); no other modification was
+made. The subsets are embedded, base64-encoded, in src/utils/invoiceAssets.js
+and are therefore redistributed in the client bundle — hence this notice, and
+hence the full OFL text shipping next to it, which clause 2 of that licence
+requires of any copy of the font.
+
+Noto Sans declares no Reserved Font Name — its copyright line carries no "with
+Reserved Font Name" clause — so clause 3 imposes no rename, and these subsets
+may keep the Noto Sans name. (A font that does reserve its name, which most
+OFL families do, could not: a subset is a Modified Version, and clause 3 bars
+those from using the reserved name. Worth knowing before swapping this font.)
+
+Noto Sans was chosen because it has a real U+20B9 glyph, which is the entire
+reason a font is embedded here at all, and because its digits are tabular —
+all ten share one advance, in both weights, so the Rate and Amount columns
+align down the page and a bold total row still lines up with the regular rows
+above it. Lato was requested first and could not be used: it has no rupee sign
+in either weight, so every price would have printed a blank .notdef box.

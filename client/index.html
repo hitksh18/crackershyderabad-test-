@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/favicon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+
+    <title>Crackers Hyderabad — Premium Fireworks &amp; Wholesale Crackers</title>
+    <meta name="description" content="Premium fireworks and wholesale crackers in Hyderabad. Gift boxes, sparklers, rockets, flower pots and festival collections at wholesale pricing, with order tracking and doorstep delivery." />
+    <meta name="keywords" content="crackers hyderabad, wholesale crackers, fireworks hyderabad, diwali crackers, sparklers, gift boxes, bulk crackers, festival fireworks" />
+    <meta name="author" content="Crackers Hyderabad" />
+    <!-- Kept media-free so the theme script below owns it; a media-scoped pair
+         would follow the OS and contradict an explicit user choice. -->
+    <meta name="theme-color" content="#761713" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="robots" content="index, follow" />
+
+    <!-- Resolve the theme before first paint so dark-mode visitors never see a
+         flash of the light palette. Must stay in step with src/contexts/ThemeContext.jsx. -->
+    <script>
+      (function () {
+        try {
+          var stored = localStorage.getItem('theme');
+          var dark =
+            stored === 'dark' ||
+            stored === 'light'
+              ? stored === 'dark'
+              : window.matchMedia &&
+                window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+          if (dark) {
+            document.documentElement.classList.add('dark');
+            document.documentElement.style.colorScheme = 'dark';
+            var meta = document.querySelector('meta[name="theme-color"]');
+            if (meta) meta.setAttribute('content', '#14100E');
+          }
+        } catch (e) {
+          /* Storage blocked — fall through to the light default. */
+        }
+      })();
+    </script>
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Crackers Hyderabad" />
+    <meta property="og:title" content="Crackers Hyderabad — Premium Fireworks &amp; Wholesale Crackers" />
+    <meta property="og:description" content="Premium fireworks and wholesale crackers in Hyderabad. Festival collections, bulk pricing and doorstep delivery." />
+    <meta property="og:image" content="https://crackershyderabad.com/images/website/crackerhyderabadlogo.png" />
+    <meta property="og:url" content="https://crackershyderabad.com/" />
+    <meta property="og:locale" content="en_IN" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Crackers Hyderabad — Premium Fireworks &amp; Wholesale Crackers" />
+    <meta name="twitter:description" content="Premium fireworks and wholesale crackers in Hyderabad. Festival collections, bulk pricing and doorstep delivery." />
+    <meta name="twitter:image" content="https://crackershyderabad.com/images/website/crackerhyderabadlogo.png" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans:wght@400;600;700&family=Playfair+Display:wght@500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "Store",
+        "name": "Crackers Hyderabad",
+        "description": "Premium fireworks and wholesale crackers retailer serving Hyderabad.",
+        "image": "https://crackershyderabad.com/images/website/crackerhyderabadlogo.png",
+        "url": "https://crackershyderabad.com",
+        "address": {
+          "@type": "PostalAddress",
+          "addressLocality": "Hyderabad",
+          "addressRegion": "Telangana",
+          "addressCountry": "IN"
+        },
+        "areaServed": "Hyderabad, Telangana, India"
+      }
+    </script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": "Crackers Hyderabad",
+        "url": "https://crackershyderabad.com",
+        "inLanguage": "en-IN",
+        "potentialAction": {
+          "@type": "SearchAction",
+          "target": {
+            "@type": "EntryPoint",
+            "urlTemplate": "https://crackershyderabad.com/products?q={search_term_string}"
+          },
+          "query-input": "required name=search_term_string"
+        }
+      }
+    </script>
+
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-7TK5B2S0WS"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'G-7TK5B2S0WS');
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

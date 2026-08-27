@@ -1,0 +1,74 @@
+modules = ["nodejs-20", "web"]
+[agent]
+expertMode = true
+
+[nix]
+channel = "stable-25_05"
+packages = ["unzip", "curl", "zip"]
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "dev-server"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "admin-api"
+
+[[workflows.workflow]]
+name = "dev-server"
+author = "agent"
+
+[workflows.workflow.metadata]
+outputType = "webview"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd client && npm run dev"
+waitForPort = 5000
+
+[[workflows.workflow]]
+name = "admin-api"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node api/server.js"
+waitForPort = 3001
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[ports]]
+localPort = 3001
+externalPort = 3001
+
+[[ports]]
+localPort = 41695
+externalPort = 3001
+
+[[ports]]
+localPort = 44193
+externalPort = 80
+
+[[ports]]
+localPort = 45429
+externalPort = 3003
+
+[userenv]
+
+[userenv.shared]
+VITE_FIREBASE_API_KEY = "AIzaSyDaXvxLzEeFriQHIYghHIafmFsN4zDUkkc"
+VITE_FIREBASE_AUTH_DOMAIN = "standard-crackers-store.firebaseapp.com"
+VITE_FIREBASE_PROJECT_ID = "standard-crackers-store"
+VITE_FIREBASE_STORAGE_BUCKET = "standard-crackers-store.firebasestorage.app"
+VITE_FIREBASE_MESSAGING_SENDER_ID = "135905252789"
+VITE_FIREBASE_APP_ID = "1:135905252789:web:3a3fbf40606a58329f35fc"
+VITE_FIREBASE_MEASUREMENT_ID = "G-XCCTJNRPSY"

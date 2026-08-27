@@ -1,0 +1,86 @@
+# Dependencies
+node_modules/
+client/node_modules/
+
+# Environment variables
+/.env
+/.env.local
+/.env.production
+# client/.env holds ONLY the public Firebase web config used at build time
+# (it ships inside the browser bundle anyway), so it is committed for
+# deterministic CI builds. Everything else stays ignored.
+client/.env.local
+
+# Build outputs
+dist/
+client/dist/
+build/
+client/build/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+/tmp/logs/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Firebase
+.firebase/
+.firebaserc
+firebase-debug.log
+firestore-debug.log
+
+# Service account credentials — NEVER commit these.
+# The API server prefers the FIREBASE_SERVICE_ACCOUNT_KEY environment variable
+# and only falls back to this file for local development.
+service-account.json
+service-account*.json
+*-service-account.json
+serviceAccountKey.json
+
+# Development scratch that has historically held pasted credentials
+attached_assets/
+
+# Deployment archives (may embed build-time configuration)
+hostinger-deploy.zip
+*.zip
+
+# Testing
+coverage/
+
+# Uploaded image artifacts (API stores originals in Firebase Storage)
+api/public/uploads/
+
+# Misc
+.cache/
+.local/
+
+# Local agent tooling state — machine-specific, not project files
+.swarm/
+.claude-flow/
+.hive-mind/
+ruvector.db
+*.db-journal
+memory/
+
+# Throwaway render probes and one-off proof pages used while working on the
+# invoice. They import app modules directly and are not part of the build.
+client/.scratch/
+client/invoice-preview.html
+client/font-proof.html
+
+.vercel
+# Anchored to the repo root: only ignore root-level .env* files, never
+# client/.env (public Firebase web config, committed on purpose).
+/.env*
