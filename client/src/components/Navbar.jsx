@@ -172,12 +172,7 @@ const Navbar = () => {
     <>
       <nav
         ref={navRef}
-        className="sticky top-0 z-nav"
-        style={{
-          background: 'var(--surface-page)',
-          borderBottom: '1px solid var(--hairline)',
-          boxShadow: 'var(--shadow-sm)',
-        }}
+        className="glass-nav sticky top-0 z-nav"
       >
         <span
           aria-hidden="true"
@@ -257,7 +252,7 @@ const Navbar = () => {
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search crackers, gift boxes and more..."
                   autoComplete="off"
-                  className="input-premium pl-11 pr-4 text-sm"
+                  className="input-premium is-glass pl-11 pr-4 text-sm"
                   style={{ borderRadius: 'var(--r-pill)' }}
                 />
               </div>
@@ -317,12 +312,9 @@ const Navbar = () => {
                         initial="hidden"
                         animate="visible"
                         exit="exit"
-                        className="z-raised absolute right-0 mt-3 max-h-[calc(100vh-6rem)] w-72 max-w-[calc(100vw-2rem)] overflow-y-auto"
+                        className="modal-glass z-raised absolute right-0 mt-3 max-h-[calc(100vh-6rem)] w-72 max-w-[calc(100vw-2rem)] overflow-y-auto"
                         style={{
-                          background: 'var(--surface-card)',
-                          border: '1px solid var(--hairline)',
                           borderRadius: 'var(--r-lg)',
-                          boxShadow: 'var(--shadow-lg)',
                           transformOrigin: 'top right',
                         }}
                       >

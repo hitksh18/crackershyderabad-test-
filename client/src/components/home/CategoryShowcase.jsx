@@ -43,7 +43,7 @@ const CategoryShowcase = ({ sectionRef, countInCategory, categories = categoryDe
         const renderCard = (cat) => {
           const count = countInCategory(cat.match);
           return (
-            <div key={cat.name} className="category-card group h-full p-3 lg:p-4">
+            <div key={cat.name} className="category-card is-glass group h-full p-3 lg:p-4">
               <Link
                 to={`/products?category=${encodeURIComponent(cat.link)}`}
                 className="flex h-full items-center gap-2.5 sm:flex-col sm:items-center sm:gap-2 lg:flex-row lg:justify-start lg:gap-3.5"

@@ -215,13 +215,8 @@ const MobileMenu = ({
 
             {user ? (
               <div
-                className="overflow-hidden"
-                style={{
-                  background: 'var(--surface-card)',
-                  border: '1px solid var(--hairline)',
-                  borderRadius: 'var(--r-lg)',
-                  boxShadow: 'var(--shadow-sm)',
-                }}
+                className="glass-card overflow-hidden"
+                style={{ borderRadius: 'var(--r-lg)' }}
               >
                 <div
                   className="flex items-center gap-3 px-4 py-3"

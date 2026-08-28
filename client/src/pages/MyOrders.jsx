@@ -28,7 +28,7 @@ import { Skeleton } from '../components/ui/Skeleton';
 import EmptyState from '../components/ui/EmptyState';
 
 const OrderCardSkeleton = () => (
-  <div className="panel-editorial p-5 sm:p-7" aria-hidden="true">
+  <div className="panel-editorial glass-card p-5 sm:p-7" aria-hidden="true">
     <div className="flex flex-wrap items-start justify-between gap-4">
       <div className="space-y-2.5">
         <Skeleton className="h-3 w-24" />
@@ -305,7 +305,7 @@ const MyOrders = () => {
                 <motion.article
                   key={order.id}
                   variants={revealVariants(reduced, 16)}
-                  className="panel-editorial"
+                  className="panel-editorial glass-card"
                 >
                   {/* ---- Card head ---- */}
                   <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-start sm:justify-between sm:p-7">

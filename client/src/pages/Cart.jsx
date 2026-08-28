@@ -131,7 +131,7 @@ const Cart = () => {
         <div className="grid items-start gap-6 lg:grid-cols-12 lg:gap-8">
           {/* ---- Line items ---- */}
           <section className="min-w-0 lg:col-span-7 xl:col-span-8" aria-label="Cart line items">
-            <div className="panel-editorial">
+            <div className="panel-editorial glass-card">
               <div
                 className="flex items-center justify-between gap-3 px-4 py-3 sm:px-6"
                 style={{ borderBottom: '1px solid var(--hairline)' }}
@@ -268,7 +268,7 @@ const Cart = () => {
               initial="hidden"
               animate="visible"
               variants={revealVariants(reduced, 12)}
-              className="panel-editorial p-4 sm:p-5"
+              className="panel-editorial glass-card p-4 sm:p-5"
             >
               <div className="flex items-start gap-3">
                 <span
@@ -304,7 +304,7 @@ const Cart = () => {
               initial="hidden"
               animate="visible"
               variants={revealVariants(reduced, 12)}
-              className="panel-editorial relative p-5 sm:p-6"
+              className="panel-editorial glass-card relative p-5 sm:p-6"
             >
               <CornerFiligree position="top-right" />
 
@@ -367,12 +367,8 @@ const Cart = () => {
           to the bottom of the line-item list. Desktop uses the sticky aside. */}
       <div className="fixed inset-x-0 bottom-0 z-sticky lg:hidden">
         <div
-          className="border-t"
-          style={{
-            background: 'var(--surface-card)',
-            borderColor: 'var(--hairline)',
-            boxShadow: '0 -8px 24px rgba(0, 0, 0, 0.12)',
-          }}
+          className="glass-nav border-t"
+          style={{ borderColor: 'var(--hairline)' }}
         >
           <div
             aria-hidden="true"

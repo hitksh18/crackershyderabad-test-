@@ -292,7 +292,7 @@ const OrderSuccess = () => {
 
             {orderId && (
               <motion.div variants={revealVariants(reduced, 18)} className="mt-8">
-                <div className="panel-editorial px-5 py-2 sm:px-7">
+                <div className="panel-editorial glass-card px-5 py-2 sm:px-7">
                   <CodeRow
                     label="Tracking Code"
                     display={`#${trackingCode}`}
@@ -372,7 +372,7 @@ const OrderSuccess = () => {
                 onClick={() => setFeedbackOpen(!feedbackOpen)}
                 aria-expanded={feedbackOpen}
                 aria-controls="order-feedback-panel"
-                className="card-premium flex w-full items-center justify-between gap-3 px-5 py-4 text-left"
+                className="card-premium glass-card flex w-full items-center justify-between gap-3 px-5 py-4 text-left"
                 style={{ minHeight: '44px' }}
               >
                 <span className="flex min-w-0 items-center gap-3">
@@ -411,7 +411,7 @@ const OrderSuccess = () => {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: reduced ? 0 : -6 }}
                     transition={{ duration: reduced ? 0.001 : DURATION.base, ease: EASE_OUT_EXPO }}
-                    className="panel-editorial mt-3 px-5 py-6"
+                    className="panel-editorial glass-card mt-3 px-5 py-6"
                   >
                     {submitted ? (
                       <div className="py-2 text-center">

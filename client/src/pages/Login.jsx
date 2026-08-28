@@ -280,7 +280,7 @@ const Login = () => {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="your.email@example.com"
-                      className="input-premium"
+                      className="input-premium is-glass"
                       aria-invalid={formError ? 'true' : 'false'}
                       required
                     />
@@ -304,7 +304,7 @@ const Login = () => {
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         placeholder="Enter your password"
-                        className="input-premium pr-14"
+                        className="input-premium is-glass pr-14"
                         aria-invalid={formError ? 'true' : 'false'}
                         required
                       />

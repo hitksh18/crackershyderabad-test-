@@ -29,13 +29,8 @@ const StickyCartBar = ({
   >
     <div className="shell pb-4">
       <div
-        className="flex items-center gap-3 px-4 py-3"
-        style={{
-          background: 'var(--surface-card)',
-          border: '1px solid var(--hairline)',
-          borderRadius: 'var(--r-lg)',
-          boxShadow: 'var(--shadow-xl)',
-        }}
+        className="sticky-cart-bar is-glass flex items-center gap-3 px-4 py-3"
+        style={{ borderRadius: 'var(--r-lg)' }}
       >
         {product.imageURL ? (
           <img

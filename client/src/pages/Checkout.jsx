@@ -440,7 +440,7 @@ const Checkout = () => {
                   cannot be required of someone whose browser denies location or
                   whose map fails to load. */}
               {adminSettings.deliveryPinEnabled !== false && (
-                <section className="panel-editorial min-w-0 p-5 sm:p-6" aria-labelledby="pin-heading">
+                <section className="panel-editorial glass-card min-w-0 p-5 sm:p-6" aria-labelledby="pin-heading">
                   <div className="flex flex-wrap items-center gap-3">
                     <span
                       className="flex h-8 w-8 shrink-0 items-center justify-center"
@@ -471,7 +471,7 @@ const Checkout = () => {
               )}
 
               {/* Step 1 — Details */}
-              <fieldset className="panel-editorial min-w-0 p-5 sm:p-6" aria-labelledby="billing-heading">
+              <fieldset className="panel-editorial glass-card min-w-0 p-5 sm:p-6" aria-labelledby="billing-heading">
                 <div className="flex items-center gap-3">
                   <span className="badge badge-gold tabular" aria-hidden="true">01</span>
                   <h2 id="billing-heading" className="subsection-title" style={{ color: 'var(--text-strong)' }}>
@@ -562,7 +562,7 @@ const Checkout = () => {
               </fieldset>
 
               {/* Step 2 — Delivery */}
-              <fieldset className="panel-editorial min-w-0 p-5 sm:p-6" aria-labelledby="delivery-heading">
+              <fieldset className="panel-editorial glass-card min-w-0 p-5 sm:p-6" aria-labelledby="delivery-heading">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
                     <span className="badge badge-gold tabular" aria-hidden="true">02</span>
@@ -700,7 +700,7 @@ const Checkout = () => {
               </fieldset>
 
               {/* Step 3 — Payment + review */}
-              <fieldset className="panel-editorial min-w-0 p-5 sm:p-6" aria-labelledby="payment-heading">
+              <fieldset className="panel-editorial glass-card min-w-0 p-5 sm:p-6" aria-labelledby="payment-heading">
                 <div className="flex items-center gap-3">
                   <span className="badge badge-gold tabular" aria-hidden="true">03</span>
                   <h2 id="payment-heading" className="subsection-title" style={{ color: 'var(--text-strong)' }}>
@@ -772,7 +772,7 @@ const Checkout = () => {
             animate="visible"
             variants={revealVariants(reduced, 12)}
             aria-label="Order summary"
-            className="panel-editorial min-w-0 p-5 sm:p-6 lg:sticky lg:top-24 lg:col-span-5 xl:col-span-4"
+            className="panel-editorial glass-card min-w-0 p-5 sm:p-6 lg:sticky lg:top-24 lg:col-span-5 xl:col-span-4"
           >
             <h2 className="subsection-title" style={{ color: 'var(--text-strong)' }}>Order Summary</h2>
             <hr className="rule-gold my-4" />
@@ -864,12 +864,8 @@ const Checkout = () => {
           same form (and therefore the same validation + review modal). */}
       <div className="fixed inset-x-0 bottom-0 z-sticky lg:hidden">
         <div
-          className="border-t"
-          style={{
-            background: 'var(--surface-card)',
-            borderColor: 'var(--hairline)',
-            boxShadow: '0 -8px 24px rgba(0, 0, 0, 0.12)',
-          }}
+          className="glass-nav border-t"
+          style={{ borderColor: 'var(--hairline)' }}
         >
           <div className="shell flex items-center gap-4 py-3">
             <div className="min-w-0">

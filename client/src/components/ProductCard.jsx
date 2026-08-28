@@ -80,13 +80,13 @@ const ProductCard = ({ product, compact = false }) => {
 
   return (
     <div
-      className={`group relative flex h-full flex-col overflow-hidden card-premium ${
+      className={`group relative flex h-full flex-col overflow-hidden card-premium glass-card ${
         compact ? 'card-compact' : ''
       }`}
     >
       {/* ---------- Image panel ---------- */}
       <div
-        className={`product-img-panel relative w-full flex-shrink-0 ${
+        className={`product-img-panel glass-img relative w-full flex-shrink-0 ${
           compact ? 'aspect-[8/5]' : 'aspect-square'
         }`}
       >

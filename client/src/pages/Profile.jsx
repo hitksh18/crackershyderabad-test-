@@ -138,7 +138,7 @@ const Profile = () => {
           className="space-y-6"
         >
           {/* ---------------- Identity header ---------------- */}
-          <motion.section variants={revealVariants(reduced, 18)} className="panel-editorial">
+          <motion.section variants={revealVariants(reduced, 18)} className="panel-editorial glass-card">
             <div
               className="relative h-32 sm:h-36"
               style={{ background: 'var(--grad-maroon)' }}
@@ -231,7 +231,7 @@ const Profile = () => {
           </motion.section>
 
           {/* ---------------- Account information ---------------- */}
-          <motion.section variants={revealVariants(reduced, 18)} className="card-premium p-5 sm:p-8">
+          <motion.section variants={revealVariants(reduced, 18)} className="card-premium glass-card p-5 sm:p-8">
             <h2 className="subsection-title">Account Information</h2>
             <hr className="rule-gold mt-3" />
 
@@ -317,7 +317,7 @@ const Profile = () => {
           </motion.section>
 
           {/* ---------------- Orders shortcut ---------------- */}
-          <motion.section variants={revealVariants(reduced, 18)} className="card-premium p-5 sm:p-8">
+          <motion.section variants={revealVariants(reduced, 18)} className="card-premium glass-card p-5 sm:p-8">
             <h2 className="subsection-title">Your Orders</h2>
             <hr className="rule-gold mt-3" />
             <p className="mt-4 text-sm leading-relaxed" style={{ color: 'var(--text-muted)' }}>
@@ -333,7 +333,7 @@ const Profile = () => {
           {isAdmin && (
             <motion.section
               variants={revealVariants(reduced, 18)}
-              className="panel-editorial p-5 sm:p-8"
+              className="panel-editorial glass-card p-5 sm:p-8"
             >
               <p className="section-eyebrow">Staff</p>
               <h3 className="subsection-title mt-3">Admin Access</h3>

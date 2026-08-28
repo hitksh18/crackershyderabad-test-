@@ -20,7 +20,7 @@ const TrustSection = ({ heading }) => (
       >
         {whyChoose.map((feature, index) => (
           <ScrollReveal.Item key={feature.title}>
-            <div className="card-premium group relative h-full overflow-hidden p-4 text-center sm:p-4">
+            <div className="card-premium glass-card group relative h-full overflow-hidden p-4 text-center sm:p-4">
               <span
                 className="tabular pointer-events-none absolute -top-2 right-3 select-none text-[2.25rem] font-extrabold leading-none transition-transform duration-300 ease-out-expo group-hover:scale-110"
                 style={{ fontFamily: 'var(--font-display)', color: 'var(--ember-600)', opacity: 0.1 }}

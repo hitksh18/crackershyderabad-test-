@@ -445,7 +445,7 @@ const TrackOrder = () => {
           <motion.form
             variants={revealVariants(reduced, 16)}
             onSubmit={handleTrack}
-            className="panel-editorial mt-8 p-5 sm:p-6"
+            className="panel-editorial glass-card mt-8 p-5 sm:p-6"
           >
             <label htmlFor="track-order-id" className="label-caps">
               Tracking code or Order ID
@@ -518,7 +518,7 @@ const TrackOrder = () => {
             role="status"
             aria-live="polite"
             aria-busy="true"
-            className="panel-editorial mt-8 flex items-center justify-center gap-3 px-6 py-14"
+            className="panel-editorial glass-card mt-8 flex items-center justify-center gap-3 px-6 py-14"
           >
             <Loader2
               className="h-5 w-5 animate-spin"
@@ -570,7 +570,7 @@ const TrackOrder = () => {
             initial="hidden"
             animate="visible"
             variants={revealVariants(reduced, 20)}
-            className="panel-editorial mt-8 overflow-hidden"
+            className="panel-editorial glass-card mt-8 overflow-hidden"
           >
             {/* Header */}
             <div className="p-5 sm:p-6" style={{ background: 'var(--grad-maroon)' }}>

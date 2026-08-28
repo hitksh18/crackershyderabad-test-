@@ -383,12 +383,12 @@ const ProductDetail = () => {
             variants={revealVariants(reduced, 18)}
             className="lg:sticky lg:top-[86px] lg:self-start"
           >
-            <div className="panel-editorial relative" style={{ borderRadius: 'var(--r-xl)' }}>
+            <div className="panel-editorial glass-card relative" style={{ borderRadius: 'var(--r-xl)' }}>
               <CornerFiligree position="top-left" />
               <CornerFiligree position="bottom-right" />
 
               <div
-                className="product-img-panel group relative isolate aspect-square w-full"
+                className="product-img-panel glass-img group relative isolate aspect-square w-full"
                 style={{ borderRadius: 'var(--r-xl) var(--r-xl) 0 0' }}
               >
                 <ArchFrame />
@@ -661,7 +661,9 @@ const ProductDetail = () => {
                         to={`/products?category=${encodeURIComponent(cat)}`}
                         className="inline-flex min-h-[44px] items-center gap-1.5 rounded-[var(--r-pill)] px-3.5 text-sm font-semibold transition-transform duration-200 ease-out hover:-translate-y-0.5"
                         style={{
-                          background: 'var(--surface-card)',
+                          background: 'var(--glass-fill-soft)',
+                          WebkitBackdropFilter: 'var(--glass-blur-soft)',
+                          backdropFilter: 'var(--glass-blur-soft)',
                           border: '1px solid var(--hairline-strong)',
                           color: 'var(--text-body)',
                         }}
@@ -687,7 +689,9 @@ const ProductDetail = () => {
                       key={title}
                       className="flex items-center gap-2.5 p-3"
                       style={{
-                        background: 'var(--surface-raised)',
+                        background: 'var(--glass-fill-soft)',
+                        WebkitBackdropFilter: 'var(--glass-blur-soft)',
+                        backdropFilter: 'var(--glass-blur-soft)',
                         border: '1px solid var(--hairline)',
                         borderRadius: 'var(--r-lg)',
                       }}

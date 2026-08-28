@@ -88,12 +88,8 @@ const SearchOverlay = ({ onClose, value, onChange, onSubmit }) => {
         role="dialog"
         aria-modal="true"
         aria-label="Search products"
-        className="relative"
-        style={{
-          background: 'var(--surface-card)',
-          borderBottom: '1px solid var(--hairline)',
-          boxShadow: 'var(--shadow-lg)',
-        }}
+        className="glass-strong relative"
+        style={{ borderRadius: '0 0 var(--r-xl) var(--r-xl)' }}
       >
         <div
           aria-hidden="true"
@@ -127,7 +123,7 @@ const SearchOverlay = ({ onClose, value, onChange, onSubmit }) => {
               onChange={onChange}
               placeholder="Search crackers, gift boxes and more..."
               autoComplete="off"
-              className="input-premium pl-11 pr-4 text-base"
+              className="input-premium is-glass pl-11 pr-4 text-base"
               style={{ borderRadius: 'var(--r-pill)' }}
             />
           </div>
