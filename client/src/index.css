@@ -56,6 +56,19 @@
   --hairline: #EFE3CE;
   --hairline-strong: #E2D2B7;
 
+  /* ---- Glass surfaces. Layered translucent fills + top-light + hairline so
+     the effect reads "premium glass" even where backdrop-filter is unsupported
+     or disabled. Readability always wins over glassiness. ---- */
+  --glass-fill: linear-gradient(152deg, rgba(255, 253, 248, 0.82) 0%, rgba(249, 241, 227, 0.6) 100%);
+  --glass-fill-strong: linear-gradient(160deg, rgba(255, 253, 248, 0.94) 0%, rgba(253, 249, 240, 0.86) 100%);
+  --glass-fill-nav: linear-gradient(180deg, rgba(253, 249, 240, 0.9) 0%, rgba(255, 253, 248, 0.72) 100%);
+  --glass-fill-soft: linear-gradient(152deg, rgba(255, 253, 248, 0.66) 0%, rgba(249, 241, 227, 0.42) 100%);
+  --glass-blur: blur(20px) saturate(150%);
+  --glass-blur-strong: blur(28px) saturate(165%);
+  --glass-blur-soft: blur(14px) saturate(140%);
+  --glass-toplight: inset 0 1px 0 rgba(255, 255, 255, 0.85);
+  --glass-toplight-soft: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+
   /* ---- Text ---- */
   --text-strong: #1A1714;
   --text-body: #433E37;
@@ -122,6 +135,15 @@
   --surface-inverse: #FDF9F0;
   --hairline: rgba(237, 231, 223, 0.10);
   --hairline-strong: rgba(237, 231, 223, 0.18);
+
+  /* Dark glass — deeper, cooler-tinted fills so translucency still reads
+     against the near-black page without washing out. */
+  --glass-fill: linear-gradient(152deg, rgba(37, 30, 26, 0.8) 0%, rgba(30, 24, 21, 0.55) 100%);
+  --glass-fill-strong: linear-gradient(160deg, rgba(37, 30, 26, 0.94) 0%, rgba(28, 22, 19, 0.88) 100%);
+  --glass-fill-nav: linear-gradient(180deg, rgba(20, 16, 14, 0.92) 0%, rgba(30, 24, 21, 0.72) 100%);
+  --glass-fill-soft: linear-gradient(152deg, rgba(37, 30, 26, 0.66) 0%, rgba(30, 24, 21, 0.4) 100%);
+  --glass-toplight: inset 0 1px 0 rgba(237, 231, 223, 0.12);
+  --glass-toplight-soft: inset 0 1px 0 rgba(237, 231, 223, 0.08);
 
   --text-strong: #F2ECE3;
   --text-body: #D6CEC3;
@@ -413,22 +435,46 @@ img {
 
   .glass-panel {
     position: relative;
-    background: linear-gradient(150deg, rgba(255, 253, 248, 0.92) 0%, rgba(249, 241, 227, 0.72) 100%);
-    -webkit-backdrop-filter: blur(20px) saturate(150%);
-    backdrop-filter: blur(20px) saturate(150%);
+    background: var(--glass-fill);
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
     border: 1px solid var(--hairline);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8), var(--shadow-md);
+    box-shadow: var(--glass-toplight), var(--shadow-md);
     border-radius: var(--r-xl);
   }
 
   .glass-strong {
     position: relative;
-    background: linear-gradient(160deg, rgba(255, 253, 248, 0.97) 0%, rgba(253, 249, 240, 0.9) 100%);
-    -webkit-backdrop-filter: blur(26px) saturate(160%);
-    backdrop-filter: blur(26px) saturate(160%);
+    background: var(--glass-fill-strong);
+    -webkit-backdrop-filter: var(--glass-blur-strong);
+    backdrop-filter: var(--glass-blur-strong);
     border: 1px solid var(--hairline);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), var(--shadow-lg);
+    box-shadow: var(--glass-toplight), var(--shadow-lg);
     border-radius: var(--r-xl);
+  }
+
+  /* Translucent raised surface for panels that sit on a dark hero/photo.
+     Lightweight blur, generous top-light, gentle shadow. */
+  .glass-surface {
+    position: relative;
+    background: var(--glass-fill-soft);
+    -webkit-backdrop-filter: var(--glass-blur-soft);
+    backdrop-filter: var(--glass-blur-soft);
+    border: 1px solid var(--hairline);
+    box-shadow: var(--glass-toplight-soft), var(--shadow-sm);
+    border-radius: var(--r-lg);
+  }
+
+  /* Sticky navigation bar — slightly more opaque than a card so content
+     scrolling under it stays legible, with a hairline + soft shadow for the
+     "floating on glass" lift. */
+  .glass-nav {
+    position: relative;
+    background: var(--glass-fill-nav);
+    -webkit-backdrop-filter: var(--glass-blur-strong);
+    backdrop-filter: var(--glass-blur-strong);
+    border-bottom: 1px solid var(--hairline);
+    box-shadow: var(--glass-toplight-soft), var(--shadow-sm);
   }
 
   .card-premium {
@@ -439,7 +485,8 @@ img {
     transition:
       box-shadow var(--dur-base) var(--ease-out-soft),
       transform var(--dur-base) var(--ease-out-expo),
-      border-color var(--dur-base) var(--ease-out-soft);
+      border-color var(--dur-base) var(--ease-out-soft),
+      background var(--dur-base) var(--ease-out-soft);
   }
 
   .card-premium:hover {
@@ -731,26 +778,26 @@ img {
   .shadow-glow { box-shadow: 0 0 30px rgba(210, 166, 79, 0.28); }
 
   .glass {
-    background: rgba(255, 253, 248, 0.62);
-    -webkit-backdrop-filter: blur(16px) saturate(150%);
-    backdrop-filter: blur(16px) saturate(150%);
+    background: var(--glass-fill-soft);
+    -webkit-backdrop-filter: var(--glass-blur-soft);
+    backdrop-filter: var(--glass-blur-soft);
     border: 1px solid var(--hairline);
   }
 
   .glass-strong-util {
-    background: rgba(255, 253, 248, 0.92);
-    -webkit-backdrop-filter: blur(24px) saturate(160%);
-    backdrop-filter: blur(24px) saturate(160%);
+    background: var(--glass-fill-strong);
+    -webkit-backdrop-filter: var(--glass-blur-strong);
+    backdrop-filter: var(--glass-blur-strong);
     border: 1px solid var(--hairline);
-    box-shadow: var(--shadow-md);
+    box-shadow: var(--glass-toplight), var(--shadow-md);
   }
 
   .glass-card {
-    background: rgba(255, 253, 248, 0.86);
-    -webkit-backdrop-filter: blur(20px) saturate(155%);
-    backdrop-filter: blur(20px) saturate(155%);
+    background: var(--glass-fill);
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
     border: 1px solid var(--hairline);
-    box-shadow: var(--shadow-sm);
+    box-shadow: var(--glass-toplight-soft), var(--shadow-sm);
   }
 
   .text-balance { text-wrap: balance; }
@@ -1097,7 +1144,17 @@ img {
   transition:
     transform var(--dur-base) var(--ease-out-expo),
     box-shadow var(--dur-base) var(--ease-out-soft),
-    border-color var(--dur-base) var(--ease-out-soft);
+    border-color var(--dur-base) var(--ease-out-soft),
+    background var(--dur-base) var(--ease-out-soft);
+}
+
+/* Glassy category tile — translucent fill + blur so the page's warm glow
+   shows through the card instead of sitting behind an opaque panel. */
+.category-card.is-glass {
+  background: var(--glass-fill);
+  -webkit-backdrop-filter: var(--glass-blur-soft);
+  backdrop-filter: var(--glass-blur-soft);
+  box-shadow: var(--glass-toplight-soft), var(--shadow-sm);
 }
 
 .category-card::before {
@@ -1125,6 +1182,13 @@ img {
   position: relative;
   overflow: hidden;
   background: linear-gradient(165deg, #FFFDF8 0%, #F7EDD5 100%);
+}
+
+/* Glassy image panel — translucent warm fill + soft top-light; the product
+   image sits above it so the panel reads as a lit glass inset. */
+.product-img-panel.glass-img {
+  background: var(--glass-fill);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
 }
 
 .category-icon-wrap {
@@ -1185,6 +1249,11 @@ img {
 
 .dark .product-img-panel {
   background: linear-gradient(165deg, #251E1A 0%, #2E241C 100%);
+}
+
+.dark .product-img-panel.glass-img {
+  background: var(--glass-fill);
+  box-shadow: inset 0 1px 0 rgba(237, 231, 223, 0.08);
 }
 
 /* Discount ribbon. */
@@ -1377,6 +1446,70 @@ img {
   transform: none;
 }
 
+/* =========================================================================
+   GLASS COMPONENT EXTENSIONS
+   ========================================================================= */
+
+/* Modal / dialog surface — strong glass so the underlying page stays faintly
+   visible through the scrim, with a crisp top-light edge. */
+.modal-glass {
+  background: var(--glass-fill-strong);
+  -webkit-backdrop-filter: var(--glass-blur-strong);
+  backdrop-filter: var(--glass-blur-strong);
+  border: 1px solid var(--hairline);
+  box-shadow: var(--glass-toplight), var(--shadow-xl);
+}
+
+/* Filter pill / chip — translucent so it sits on the page like frosted glass. */
+.glass-chip {
+  background: var(--glass-fill-soft);
+  -webkit-backdrop-filter: var(--glass-blur-soft);
+  backdrop-filter: var(--glass-blur-soft);
+  border: 1px solid var(--hairline);
+  color: var(--text-body);
+  transition:
+    border-color var(--dur-fast) var(--ease-out-soft),
+    background var(--dur-fast) var(--ease-out-soft),
+    color var(--dur-fast) var(--ease-out-soft),
+    transform var(--dur-fast) var(--ease-out-soft),
+    box-shadow var(--dur-fast) var(--ease-out-soft);
+}
+
+.glass-chip:hover {
+  border-color: rgba(195, 58, 20, 0.4);
+  color: var(--text-strong);
+  transform: translateY(-1px);
+}
+
+.glass-chip.is-active {
+  background: var(--grad-ember);
+  border-color: transparent;
+  color: #FFFFFF;
+  box-shadow: var(--shadow-ember);
+}
+
+/* Glass table — translucent header band + hairline rows for the price list. */
+.glass-table { background: var(--glass-fill-soft); }
+.glass-table thead th { background: var(--glass-fill); }
+
+/* Glass input — frosted field that still reads as an editable surface. */
+.input-premium.is-glass {
+  background: var(--glass-fill-soft);
+  -webkit-backdrop-filter: var(--glass-blur-soft);
+  backdrop-filter: var(--glass-blur-soft);
+  border-color: var(--hairline-strong);
+}
+
+/* Docked action bar (sticky add-to-cart) — floating glass with a strong
+   top-light so it lifts off the page instead of sitting flat. */
+.sticky-cart-bar.is-glass {
+  background: var(--glass-fill-nav);
+  -webkit-backdrop-filter: var(--glass-blur-strong);
+  backdrop-filter: var(--glass-blur-strong);
+  border-top: 1px solid var(--hairline);
+  box-shadow: var(--glass-toplight-soft), 0 -8px 28px rgba(58, 11, 12, 0.12);
+}
+
 .react-hot-toast { animation-duration: 0.15s !important; }
 
 .editor-tab-inactive {
@@ -1396,9 +1529,24 @@ img {
 
 .dark body { color: var(--text-body); }
 
+/* Glass surfaces keep their translucency in dark mode — the token fills are
+   already dark-tinted, so we only defend the hairline + shadow. */
 .dark .glass-panel,
 .dark .glass-strong,
-.dark .glass-card,
+.dark .glass-surface,
+.dark .glass-nav,
+.dark .glass-card {
+  background: var(--glass-fill);
+  border-color: var(--hairline);
+  box-shadow: var(--glass-toplight), 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.dark .glass-strong,
+.dark .glass-strong-util,
+.dark .glass-nav { background: var(--glass-fill-strong); }
+.dark .glass-surface { background: var(--glass-fill-soft); }
+.dark .glass-nav { background: var(--glass-fill-nav); }
+
 .dark .card-premium,
 .dark .panel-editorial,
 .dark .category-card {
@@ -1412,8 +1560,26 @@ img {
   box-shadow: 0 16px 44px rgba(0, 0, 0, 0.62);
 }
 
-.dark .glass,
-.dark .glass-strong-util { background: var(--surface-card); border-color: var(--hairline); }
+/* When a card carries both `card-premium` and `glass-card`, the glass fill
+   wins so the frosted surface survives dark mode. */
+.dark .card-premium.glass-card,
+.dark .panel-editorial.glass-card {
+  background: var(--glass-fill);
+  box-shadow: var(--glass-toplight), 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.dark .category-card.is-glass { background: var(--glass-fill); box-shadow: var(--glass-toplight-soft), 0 8px 32px rgba(0, 0, 0, 0.5); }
+
+.dark .glass { background: var(--glass-fill-soft); border-color: var(--hairline); }
+.dark .glass-strong-util { background: var(--glass-fill-strong); border-color: var(--hairline); }
+
+.dark .modal-glass { background: var(--glass-fill-strong); border-color: var(--hairline); }
+.dark .glass-chip { background: var(--glass-fill-soft); border-color: var(--hairline); }
+.dark .glass-chip:hover { border-color: rgba(247, 174, 44, 0.5); }
+.dark .glass-table { background: var(--glass-fill-soft); }
+.dark .glass-table thead th { background: var(--glass-fill); }
+.dark .input-premium.is-glass { background: var(--glass-fill-soft); border-color: var(--hairline-strong); }
+.dark .sticky-cart-bar.is-glass { background: var(--glass-fill-nav); border-color: var(--hairline); }
 
 .dark .input-premium {
   background: rgba(237, 231, 223, 0.05);
@@ -1550,6 +1716,12 @@ img {
   .card-premium,
   .glass-panel,
   .glass-strong,
+  .glass-surface,
+  .glass-nav,
+  .glass-card,
+  .modal-glass,
+  .glass-chip,
+  .glass-table,
   .panel-editorial {
     box-shadow: none;
     border: 1px solid #CCCCCC;
