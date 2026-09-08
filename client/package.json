@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@imgly/background-removal": "^1.7.0",
-    "caniuse-lite": "^1.0.30001809",
+    "caniuse-lite": "^1.0.30001810",
     "firebase": "^12.5.0",
     "framer-motion": "^12.23.24",
     "jspdf": "^4.2.1",
