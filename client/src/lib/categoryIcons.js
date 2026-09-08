@@ -6,7 +6,8 @@ const NAME_SLUGS = {
   Rockets: 'rockets',
   Sparkles: 'sparkles',
   'Ground Chakkars': 'ground-chakkars',
-  'Fancy Fireworks': 'fancy',
+  'Sky Shots': 'fancy',
+  'Fancy Fireworks': 'fancy-fireworks',
   'Gift Boxes': 'gift-boxes',
   'Flower Pots': 'flower-pots',
   Bombs: 'bombs',
@@ -18,3 +19,12 @@ const NAME_SLUGS = {
 
 export const slugForCategory = (name) =>
   NAME_SLUGS[String(name || '').trim()] || 'rockets';
+
+/* Legacy category names still stored on older product documents, mapped to
+   the current storefront labels. Values that already match are returned as-is. */
+const LEGACY_DISPLAY = {};
+
+/** Display name for a category string — normalises legacy DB names to the
+    current storefront label without duplicating the category. */
+export const displayNameForCategory = (name) =>
+  LEGACY_DISPLAY[String(name || '').trim()] || String(name || '');

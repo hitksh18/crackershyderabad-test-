@@ -195,7 +195,7 @@ service cloud.firestore {
     }
 
     // Homepage hero carousel slides. Public so the storefront can render them;
-    // written only from the admin Canvas editor.
+    // written only from the admin Homepage Admin.
     match /heroSlides/{slideId} {
       allow read: if true;
       allow write: if isAdminAny();

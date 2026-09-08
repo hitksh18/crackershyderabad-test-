@@ -6,7 +6,6 @@ const cors = require('cors');
 const { initializeApp, cert } = require('firebase-admin/app');
 const { getAuth } = require('firebase-admin/auth');
 const { getFirestore } = require('firebase-admin/firestore');
-const { getStorage } = require('firebase-admin/storage');
 const nodemailer = require('nodemailer');
 const multer = require('multer');
 const path = require('path');
@@ -14,6 +13,21 @@ const fs = require('fs');
 const crypto = require('crypto');
 const { execFile } = require('child_process');
 const sharp = require('sharp');
+const {
+  getMediaRoot,
+  getPublicBase,
+  normalizeDir,
+  ensureMediaDirs,
+  validateImage,
+  extensionForMime,
+  generateFilename,
+  storeMedia,
+  watermarkImage,
+  upscaleImage,
+  parsePublicUrl,
+  deleteMediaByUrl,
+  ALLOWED_DIRS,
+} = require('./lib/media');
 
 const {
   STAFF_ROLES,
@@ -51,6 +65,7 @@ app.disable('x-powered-by');
 const DEFAULT_ORIGINS = [
   'http://localhost:5000',
   'http://localhost:3000',
+  'http://localhost:5173',
   'https://crackershyderabad.com',
   'https://www.crackershyderabad.com',
 ];
@@ -70,6 +85,13 @@ const corsOptions = {
     if (!origin) return callback(null, true);
 
     if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+
+    // Local development: Vite may bind any free port (5173, 5174, ...), and
+    // localhost only resolves to the loopback interface, so this does not open
+    // up the allowed-origin list to anyone off-machine.
+    if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
+      return callback(null, true);
+    }
 
     console.warn(`[cors] blocked origin: ${origin}`);
     return callback(new Error('CORS not allowed'), false);
@@ -96,6 +118,11 @@ const notifyLimiter = createRateLimiter({ windowMs: 60_000, max: 10, name: 'noti
    --------------------------------------------------------------------------- */
 
 let firebaseInitialized = false;
+/* Project id parsed from the service account itself, so the Storage bucket
+   default stays correct even when FIREBASE_PROJECT_ID is not set in the
+   server environment (previously it fell back to a hardcoded bucket name
+   that may not exist, and every upload silently became a local-disk URL). */
+let serviceAccountProjectId = process.env.FIREBASE_PROJECT_ID || '';
 
 function initializeFirebase() {
   if (firebaseInitialized) return true;
@@ -115,7 +142,11 @@ function initializeFirebase() {
       return false;
     }
 
-    initializeApp({ credential: cert(JSON.parse(serviceAccount)) });
+    const parsed = JSON.parse(serviceAccount);
+    if (parsed && parsed.project_id && !serviceAccountProjectId) {
+      serviceAccountProjectId = parsed.project_id;
+    }
+    initializeApp({ credential: cert(parsed) });
     firebaseInitialized = true;
     console.log('Firebase Admin SDK initialized successfully');
     return true;
@@ -126,6 +157,14 @@ function initializeFirebase() {
 }
 
 initializeFirebase();
+
+// KVM media dirs — ensure they exist once at boot.
+try {
+  ensureMediaDirs();
+  console.log(`KVM media root: ${getMediaRoot()} → ${getPublicBase()}`);
+} catch (e) {
+  console.warn('[media] ensure dirs failed:', e.message);
+}
 
 const requireFirebase = (req, res, next) => {
   if (!firebaseInitialized) {
@@ -191,17 +230,13 @@ const requireRole = (allowed) => async (req, res, next) => {
 const requireAdmin = requireRole(['admin']);
 
 /* ---------------------------------------------------------------------------
-   Uploads
-   Serverless-friendly: files are held in memory, processed with sharp and
-   persisted to Firebase Storage (products/<name>, public read). Local disk
-   is ephemeral on Vercel, so nothing is ever written to the filesystem.
+   KVM Media Storage — permanent filesystem store for ALL uploads.
+   https://crackershyderabad.com/uploads/<subdir>/<file>
+   Files live in /var/www/crackershyderabad-media/<subdir>/ on production.
+   No Firebase Storage, no Cloudinary, no localhost fallback.
    --------------------------------------------------------------------------- */
 
-// The stored extension is chosen from this map, never taken from the upload.
-// A client-supplied name like "payload.html" with a spoofed image/* MIME type
-// would otherwise be written verbatim and then served back from /uploads as
-// active content on this origin.
-const ALLOWED_IMAGE_TYPES = {
+const UPLOAD_ALLOWED_TYPES = {
   'image/jpeg': '.jpg',
   'image/png': '.png',
   'image/webp': '.webp',
@@ -210,68 +245,17 @@ const ALLOWED_IMAGE_TYPES = {
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 4 * 1024 * 1024, files: 1, fields: 10 },
+  limits: { fileSize: 6 * 1024 * 1024, files: 1, fields: 10 },
   fileFilter: (req, file, cb) => {
-    if (ALLOWED_IMAGE_TYPES[file.mimetype]) return cb(null, true);
+    if (UPLOAD_ALLOWED_TYPES[file.mimetype]) return cb(null, true);
     return cb(new Error('Only JPEG, PNG, WebP or GIF images are allowed'));
   },
 });
 
-function storageBucket(projectId) {
-  const configured = process.env.STORAGE_BUCKET;
-  if (configured) return configured;
-  const defaultName = `${projectId || 'standard-crackers-store'}.firebasestorage.app`;
-  return defaultName;
-}
-
-async function storeImage(buffer, name, contentType) {
-  if (!firebaseInitialized) throw new Error('Firebase is not initialized');
-  const bucket = getStorage().bucket(storageBucket(process.env.FIREBASE_PROJECT_ID));
-  const file = bucket.file(`products/${name}`);
-  await file.save(buffer, {
-    metadata: {
-      contentType,
-      cacheControl: 'public, max-age=31536000, immutable',
-    },
-  });
-  await file.makePublic();
-  const bucketName = file.bucket.name;
-  return `https://firebasestorage.googleapis.com/v0/b/${encodeURIComponent(bucketName)}/o/${encodeURIComponent(`products/${name}`)}?alt=media`;
-}
-
-/* ---------------------------------------------------------------------------
-   Disk fallback for uploads.
-   Firebase Storage may not be provisioned on the project (no billing bucket
-   exists). When the bucket write fails, images are kept on the server disk in
-   the persistent api directory (deploys only copy into it, never wipe it) and
-   served back over the same /api origin.
-   --------------------------------------------------------------------------- */
-
-const UPLOADS_DIR = path.join(__dirname, 'public', 'uploads');
-const UPLOAD_CONTENT_TYPES = {
-  '.jpg': 'image/jpeg',
-  '.png': 'image/png',
-  '.webp': 'image/webp',
-  '.gif': 'image/gif',
-};
-
-async function storeImageToDisk(buffer, name) {
-  await fs.promises.mkdir(UPLOADS_DIR, { recursive: true });
-  await fs.promises.writeFile(path.join(UPLOADS_DIR, name), buffer);
-}
-
+// Legacy endpoint compatibility: /api/images/:name is now dead (moved to KVM/Nginx).
+// Keep a 410 so old DB URLs fail loudly instead of silently returning a wrong image.
 app.get('/api/images/:name', (req, res) => {
-  const name = req.params.name;
-  if (!/^[A-Za-z0-9_-]+\.(jpg|png|webp|gif)$/.test(name)) {
-    return res.status(404).json({ error: 'Not found' });
-  }
-  const filePath = path.join(UPLOADS_DIR, name);
-  if (!fs.existsSync(filePath)) {
-    return res.status(404).json({ error: 'Not found' });
-  }
-  res.set('Content-Type', UPLOAD_CONTENT_TYPES[path.extname(name).toLowerCase()] || 'application/octet-stream');
-  res.set('Cache-Control', 'public, max-age=31536000, immutable');
-  return res.sendFile(filePath);
+  return res.status(410).json({ error: 'Moved to KVM: https://crackershyderabad.com/uploads/ — this endpoint is retired.' });
 });
 
 app.post(
@@ -284,24 +268,29 @@ app.post(
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    // The MIME type is client-supplied. Decode the file and let sharp tell us
-    // what it actually is before we keep it.
+    // Optional dir: which KVM subdirectory to store in. Must be in ALLOWED_DIRS.
+    const requestedDir = (req.body.dir || req.query.dir || 'products').toString();
+    let dir;
     try {
-      const meta = await sharp(req.file.buffer).metadata();
-      if (!meta.format || !['jpeg', 'png', 'webp', 'gif'].includes(meta.format)) {
-        throw new Error(`Unsupported image content: ${meta.format || 'unknown'}`);
-      }
+      dir = normalizeDir(requestedDir);
+    } catch (e) {
+      return res.status(400).json({ error: e.message });
+    }
+
+    // Validate actual image content (not just MIME)
+    try {
+      await validateImage(req.file.buffer, req.file.mimetype);
     } catch (error) {
-      console.warn('Rejected upload that is not a real image:', error.message);
+      console.warn('[upload] rejected not-an-image:', error.message);
       return res.status(400).json({ error: 'That file is not a valid image' });
     }
 
-    const ext = ALLOWED_IMAGE_TYPES[req.file.mimetype] || '.bin';
+    const ext = UPLOAD_ALLOWED_TYPES[req.file.mimetype] || extensionForMime(req.file.mimetype) || '.webp';
     const shouldUpscale = req.body.upscale === 'true';
     const shouldWatermark = req.body.watermark !== 'false';
 
     let buffer = req.file.buffer;
-    let finalName = `${Date.now()}_${Math.round(Math.random() * 1e9)}${ext}`;
+    let finalName = generateFilename(ext);
 
     try {
       if (shouldUpscale) {
@@ -314,92 +303,64 @@ app.post(
         if (marked !== false) buffer = marked;
       }
     } catch (error) {
-      console.error('Image processing failed, keeping original:', error.message);
+      console.error('[upload] image processing failed, keeping original:', error.message);
     }
 
     try {
-      const url = await storeImage(buffer, finalName, req.file.mimetype);
-      return res.json({ url });
+      const { publicUrl } = await storeMedia(buffer, dir, finalName);
+      console.log(`[upload] ${dir}/${finalName} → ${publicUrl} (${buffer.length} bytes)`);
+      return res.json({ url: publicUrl, publicUrl, dir, filename: finalName });
     } catch (error) {
-      console.error('Storage upload failed, falling back to local disk:', error.message);
-      try {
-        await storeImageToDisk(buffer, finalName);
-        const url = `${req.protocol}://${req.get('host')}/api/images/${encodeURIComponent(finalName)}`;
-        return res.json({ url });
-      } catch (diskError) {
-        console.error('Disk upload failed:', diskError.message);
-        return res.status(500).json({ error: 'Failed to store image' });
-      }
+      console.error('[upload] KVM store failed:', error.message);
+      return res.status(500).json({ error: `Image upload failed: ${error.message}` });
     }
   }
 );
 
-const WATERMARK_LABEL = 'Crackers Hyderabad';
-
-async function watermarkImage(buffer) {
-  const meta = await sharp(buffer).metadata();
-  const width = meta.width || 800;
-  const height = meta.height || 600;
-
-  if (width < 160 || height < 120) return false;
-
-  const fontSize = Math.max(13, Math.round(Math.min(width, height) * 0.032));
-  const approxTextWidth = WATERMARK_LABEL.length * fontSize * 0.62;
-  const pad = Math.round(fontSize * 0.55);
-  const pillW = Math.round(approxTextWidth + pad * 2);
-  const pillH = Math.round(fontSize * 1.65);
-  const margin = Math.max(8, Math.round(fontSize * 0.55));
-  const x = Math.max(0, width - pillW - margin);
-  const y = Math.max(0, height - pillH - margin);
-
-  const svg = Buffer.from(
-    `<svg width="${pillW}" height="${pillH}" xmlns="http://www.w3.org/2000/svg">
-      <rect width="${pillW}" height="${pillH}" rx="${Math.round(pillH / 2)}" fill="rgba(0,0,0,0.45)"/>
-      <text x="${pillW / 2}" y="${pillH / 2 + 1}" font-family="Inter, Arial, sans-serif" font-size="${fontSize}" font-weight="700" fill="rgba(255,255,255,0.92)" text-anchor="middle" dominant-baseline="central">${WATERMARK_LABEL}</text>
-    </svg>`
-  );
-
-  let pipeline = sharp(buffer).composite([{ input: svg, top: y, left: x }]);
-  if (meta.format === 'png') {
-    pipeline = pipeline.png({ compressionLevel: 9 });
-  } else if (meta.format === 'webp') {
-    pipeline = pipeline.webp({ quality: 92 });
-  } else if (meta.format === 'gif') {
-    return false;
-  } else {
-    pipeline = pipeline.jpeg({ quality: 92 });
+// Generic media delete — admin only, dir inferred from URL.
+app.delete('/api/media', uploadLimiter, requireAdmin, async (req, res) => {
+  const url = String(req.body?.url || req.query.url || '').trim();
+  if (!url) return res.status(400).json({ error: 'Missing url' });
+  try {
+    const ok = await deleteMediaByUrl(url);
+    return res.json({ ok, deleted: ok });
+  } catch (e) {
+    return res.status(400).json({ error: e.message });
   }
+});
 
-  return pipeline.toBuffer();
-}
-
-const UPSCALE_TARGET = 1600;
-const UPSCALE_MAX_FACTOR = 4;
-
-async function upscaleImage(buffer, filename) {
-  const meta = await sharp(buffer).metadata();
-  const width = meta.width || 0;
-  const height = meta.height || 0;
-  const maxDim = Math.max(width, height);
-
-  const scale = maxDim >= UPSCALE_TARGET ? 1 : Math.min(UPSCALE_TARGET / maxDim, UPSCALE_MAX_FACTOR);
-
-  let newName = `${path.basename(filename, path.extname(filename))}.png`;
-  if (newName === filename) {
-    newName = `${path.basename(filename, path.extname(filename))}_up${Date.now()}.png`;
+// Health for KVM media (admin only)
+app.get('/api/admin/media-health', adminLimiter, requireAdmin, async (req, res) => {
+  const root = getMediaRoot();
+  const base = getPublicBase();
+  const checks = [];
+  for (const dir of ALLOWED_DIRS) {
+    const full = path.join(root, ...dir.split('/'));
+    let ok = false;
+    let error = null;
+    try {
+      await fs.promises.mkdir(full, { recursive: true });
+      await fs.promises.access(full, fs.constants.W_OK);
+      ok = true;
+    } catch (e) {
+      error = e.message;
+    }
+    checks.push({ dir, path: full, ok, error });
   }
-
-  const processed = await sharp(buffer)
-    .resize({
-      width: Math.max(1, Math.round(width * scale)),
-      height: Math.max(1, Math.round(height * scale)),
-      kernel: sharp.kernel.lanczos3,
-    })
-    .png({ compressionLevel: 9 })
-    .toBuffer();
-
-  return { buffer: processed, name: newName };
-}
+  const probeFile = `health_${Date.now()}.txt`;
+  let probeOk = false;
+  try {
+    const { publicUrl } = await storeMedia(Buffer.from('health'), 'general', probeFile);
+    const parsed = parsePublicUrl(publicUrl);
+    const full = path.join(root, ...parsed.dir.split('/'), parsed.filename);
+    await fs.promises.access(full, fs.constants.F_OK);
+    await fs.promises.unlink(full);
+    probeOk = true;
+  } catch (e) {
+    console.warn('[media-health] probe failed:', e.message);
+  }
+  return res.json({ ok: checks.every((c) => c.ok) && probeOk, root, base, dirs: checks, probeOk });
+});
 
 /* ---------------------------------------------------------------------------
    Admin user management — all admin-only, all rate limited
@@ -511,10 +472,17 @@ app.delete('/api/admin/users/:uid', adminLimiter, requireAdmin, async (req, res)
     }
 
     await getAuth().deleteUser(req.params.uid);
-    console.log(`[admin] ${req.caller.uid} deleted ${req.params.uid}`);
+    // Clean application data if present — do not fail the whole request if these are missing
+    try { await getFirestore().collection('roles').doc(req.params.uid).delete(); } catch (e) { console.warn('[admin] roles cleanup failed for', req.params.uid, e.message); }
+    try { await getFirestore().collection('users').doc(req.params.uid).delete(); } catch (e) { console.warn('[admin] users cleanup failed for', req.params.uid, e.message); }
+    console.log(`[admin] ${req.caller.uid} deleted ${req.params.uid} (auth + roles/users)`);
     res.json({ success: true, message: 'User deleted successfully' });
   } catch (error) {
-    console.error('Error deleting user:', error);
+    console.error('Error deleting user:', error.code, error.message);
+    // Map known auth errors to safe messages
+    const code = error.code || '';
+    if (code.includes('user-not-found')) return res.status(404).json({ error: 'User not found' });
+    if (code.includes('invalid-uid')) return res.status(400).json({ error: 'Invalid user ID' });
     res.status(500).json({ error: 'Failed to delete user' });
   }
 });
@@ -544,6 +512,84 @@ app.post('/api/admin/users/:uid/update', adminLimiter, requireAdmin, async (req,
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' });
+});
+
+app.get('/api/admin/firebase-health', adminLimiter, requireAdmin, async (req, res) => {
+  try {
+    const firestoreOk = await (async () => {
+      try {
+        await getFirestore().collection('roles').limit(1).get();
+        return true;
+      } catch (e) {
+        console.error('[health] firestore check failed:', e.message);
+        return false;
+      }
+    })();
+
+    const authOk = await (async () => {
+      try {
+        await getAuth().listUsers(1);
+        return true;
+      } catch (e) {
+        console.error('[health] auth check failed:', e.message);
+        return false;
+      }
+    })();
+
+    const media = await (async () => {
+      const root = getMediaRoot();
+      const base = getPublicBase();
+      try {
+        await fs.promises.mkdir(path.join(root, 'products'), { recursive: true });
+        await fs.promises.access(root, fs.constants.W_OK);
+        const probe = `health_${Date.now()}.txt`;
+        const { publicUrl } = await storeMedia(Buffer.from('health'), 'general', probe);
+        const parsed = parsePublicUrl(publicUrl);
+        const full = path.join(root, ...parsed.dir.split('/'), parsed.filename);
+        await fs.promises.unlink(full).catch(() => {});
+        return { ok: true, root, base, mediaOk: true };
+      } catch (e) {
+        console.error('[health] KVM media check failed:', e.message);
+        return { ok: false, root, base, mediaOk: false, error: e.message };
+      }
+    })();
+
+    const ok = firebaseInitialized && firestoreOk && authOk && media.ok;
+    res.json({
+      ok,
+      auth: authOk,
+      firestore: firestoreOk,
+      storage: media,
+      media,
+      projectId: serviceAccountProjectId || process.env.FIREBASE_PROJECT_ID || 'standard-crackers-store',
+      initialized: firebaseInitialized,
+    });
+  } catch (e) {
+    console.error('[health] unexpected:', e.message);
+    res.status(500).json({ ok: false, error: 'Health check failed' });
+  }
+});
+
+/* KVM probe — definitive "can this server write to KVM" check */
+app.post('/api/admin/storage-probe', adminLimiter, requireAdmin, async (req, res) => {
+  const root = getMediaRoot();
+  const base = getPublicBase();
+  try {
+    const name = `kvm-probe-${Date.now()}.txt`;
+    const { publicUrl } = await storeMedia(Buffer.from('kvm-probe'), 'general', name);
+    const parsed = parsePublicUrl(publicUrl);
+    const full = path.join(root, ...parsed.dir.split('/'), parsed.filename);
+    const exists = fs.existsSync(full);
+    await fs.promises.unlink(full).catch(() => {});
+    if (!exists) {
+      return res.status(500).json({ ok: false, base, error: 'Probe object missing right after write' });
+    }
+    console.log(`[storage-probe] KVM OK (${publicUrl})`);
+    return res.json({ ok: true, base, publicUrl });
+  } catch (e) {
+    console.error('[storage-probe] KVM FAILED:', e.message);
+    return res.status(500).json({ ok: false, base, error: e.message });
+  }
 });
 
 /* ---------------------------------------------------------------------------

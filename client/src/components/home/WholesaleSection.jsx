@@ -12,8 +12,10 @@ const WHOLESALE_FIELD =
  * it reads as a distinct proposition rather than another product shelf.
  *
  * Copy is theme-only — no volumes, lead times, licences or guarantees.
+ * `copy` ({ eyebrow, title, description, ctaText, ctaUrl }) overrides the
+ * default editorial copy — used by the homepage canvas.
  */
-const WholesaleSection = () => (
+const WholesaleSection = ({ copy }) => (
   <section
     id="wholesale"
     className="section-pad relative overflow-hidden"
@@ -30,30 +32,29 @@ const WholesaleSection = () => (
     />
 
     <div className="shell-wide relative">
-      <div className="grid gap-10 lg:grid-cols-12 lg:gap-12">
+      <div className="grid gap-7 sm:gap-10 lg:grid-cols-12 lg:gap-12">
         {/* ---- Proposition ---- */}
         <div className="relative lg:col-span-5">
           <CornerFiligree position="top-right" className="opacity-80" />
 
           <span className="section-eyebrow relative" style={{ color: 'var(--gold-400)' }}>
-            Wholesale
+            {copy?.eyebrow || 'Wholesale'}
           </span>
 
           <h2 className="section-title relative mt-3" style={{ color: 'var(--white-soft)' }}>
-            Built for Wholesale Orders
+            {copy?.title || 'Built for Wholesale Orders'}
           </h2>
 
           <p
             className="mt-4 max-w-prose text-pretty"
             style={{ fontFamily: 'var(--font-body)', color: 'var(--text-on-dark)', lineHeight: 1.7 }}
           >
-            Retailers, event teams and large family celebrations order differently. The catalogue, the
-            cart and the tracking are all built to carry a bigger list without turning into a phone call.
+            {copy?.description || 'Retailers, event teams and large family celebrations order differently. The catalogue, the cart and the tracking are all built to carry a bigger list without turning into a phone call.'}
           </p>
 
           <div className="mt-6 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-            <Link to="/products" className="btn-primary px-7 py-3.5 text-sm">
-              Shop Crackers
+            <Link to={copy?.ctaUrl || '/products'} className="btn-primary px-7 py-3.5 text-sm">
+              {copy?.ctaText || 'Shop Crackers'}
               <ArrowRight className="h-4 w-4" strokeWidth={2.2} aria-hidden="true" />
             </Link>
             <Link

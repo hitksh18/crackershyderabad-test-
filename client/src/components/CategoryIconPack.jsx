@@ -2,15 +2,20 @@ import { useEffect, useState } from 'react';
 
 /**
  * Category icons — the approved PNG asset set, one exact file per category.
- * Transparent padding is cropped at runtime (artwork pixels untouched) so the
- * artwork fills its box edge-to-edge at its original aspect ratio.
+ *
+ * `noCrop` renders the full source asset as-is inside whatever fixed box the
+ * caller provides (object-fit: contain, fully visible, never cropped). The
+ * Products pill row uses this so every icon shares one identical bounding
+ * box with no per-icon runtime resizing and no post-load src swap.
+ * Everywhere else keeps the legacy cropped rendering, unchanged.
  */
 
 const SLUG_FILES = {
   rockets: 'rockets.png',
   sparkles: 'sparklers.png',
   'ground-chakkars': 'ground chakkar.png',
-  fancy: 'fancy firework.png',
+  fancy: 'sky shots.png',
+  'fancy-fireworks': 'fancy fireworks.png',
   'gift-boxes': 'gift boxes.png',
   'flower-pots': 'flowerpots.png',
   bombs: 'bombs.png',
@@ -79,11 +84,12 @@ const computeCrop = (src) =>
     img.src = src;
   });
 
-const CategoryIcon = ({ category, className, glow = false }) => {
+const CategoryIcon = ({ category, className, glow = false, noCrop = false }) => {
   const src = `/product_icons/${SLUG_FILES[category] || SLUG_FILES.rockets}`;
   const [crop, setCrop] = useState(null);
 
   useEffect(() => {
+    if (noCrop) return;
     let cancelled = false;
     computeCrop(src).then((result) => {
       if (!cancelled) setCrop(result);
@@ -91,7 +97,22 @@ const CategoryIcon = ({ category, className, glow = false }) => {
     return () => {
       cancelled = true;
     };
-  }, [src]);
+  }, [src, noCrop]);
+
+  /* Normalised pill rendering: one shared fixed box owned by CSS
+     (.catalogue-pill-icon), artwork centred, fully visible, never cropped,
+     identical for every category regardless of source aspect ratio. */
+  if (noCrop) {
+    return (
+      <img
+        src={src}
+        alt=""
+        className={className ?? 'h-full w-full'}
+        draggable={false}
+        style={{ objectFit: 'contain', objectPosition: 'center', display: 'block' }}
+      />
+    );
+  }
 
   return (
     <span className="relative block h-full w-full">

@@ -46,28 +46,40 @@ const CategoryShowcase = ({ sectionRef, countInCategory, categories = categoryDe
             <div key={cat.name} className="category-card is-glass group h-full p-3 lg:p-4">
               <Link
                 to={`/products?category=${encodeURIComponent(cat.link)}`}
-                className="flex h-full items-center gap-2.5 sm:flex-col sm:items-center sm:gap-2 lg:flex-row lg:justify-start lg:gap-3.5"
+                className="flex h-full items-center gap-2 sm:flex-col sm:items-center sm:gap-2 lg:flex-row lg:justify-start lg:gap-3.5"
               >
                 <span
-                  className="category-icon-wrap flex h-12 w-12 shrink-0 items-center justify-center lg:h-16 lg:w-16"
+                  className="category-icon-wrap flex h-11 w-11 shrink-0 items-center justify-center sm:h-12 sm:w-12 lg:h-16 lg:w-16"
                   aria-hidden="true"
                 >
                   <CategoryIcon category={cat.slug} glow />
                 </span>
 
-                <div className="flex min-w-0 flex-1 flex-col items-center gap-0.5 sm:items-center lg:items-start">
-                  <div className="flex w-full min-w-0 items-center justify-center gap-2 lg:justify-between">
+                <div className="flex min-w-0 flex-1 flex-col items-start gap-0.5 sm:items-center lg:items-start">
+                  <div className="flex w-full min-w-0 items-center gap-2 sm:justify-center lg:justify-between">
                     <h3
-                      className="category-title min-w-0 flex-1 text-center transition-colors duration-200 sm:text-center lg:text-left"
+                      className="category-title min-w-0 flex-1 text-left transition-colors duration-200 sm:text-center lg:text-left"
                       style={{ color: 'var(--text-strong)' }}
                     >
                       {cat.name}
                     </h3>
-                    <ArrowPip className="h-[22px] w-[22px] shrink-0" />
+                    {/* From sm up the pip sits beside the title, as before. On
+                        phones it moves to the meta row below so the category
+                        name gets the card's full inner width and can wrap by
+                        whole words instead of being squeezed per-character. */}
+                    <span className="hidden shrink-0 sm:block">
+                      <ArrowPip className="h-[22px] w-[22px]" />
+                    </span>
                   </div>
-                  <p className="text-xs font-semibold" style={{ color: 'var(--text-muted)' }}>
-                    <span className="tabular">{count}</span> item{count !== 1 ? 's' : ''}
-                  </p>
+
+                  <div className="flex w-full items-center justify-between gap-2 sm:justify-center lg:justify-start">
+                    <p className="text-xs font-semibold" style={{ color: 'var(--text-muted)' }}>
+                      <span className="tabular">{count}</span> item{count !== 1 ? 's' : ''}
+                    </p>
+                    <span className="shrink-0 sm:hidden">
+                      <ArrowPip className="h-[22px] w-[22px]" />
+                    </span>
+                  </div>
                 </div>
               </Link>
             </div>

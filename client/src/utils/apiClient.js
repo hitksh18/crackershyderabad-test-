@@ -19,7 +19,26 @@ export async function authFetch(url, options = {}) {
   const headers = new Headers(options.headers || {});
   headers.set('Authorization', `Bearer ${token}`);
 
-  return fetch(url, { ...options, headers });
+  let res = await fetch(url, { ...options, headers });
+
+  // If token is stale (e.g., just disabled/enabled), retry once with a forced refresh
+  if (res.status === 401) {
+    try {
+      const freshToken = await user.getIdToken(true);
+      const retryHeaders = new Headers(options.headers || {});
+      retryHeaders.set('Authorization', `Bearer ${freshToken}`);
+      const retryRes = await fetch(url, { ...options, headers: retryHeaders });
+      // Only use retry if it succeeded or at least not 401 — otherwise surface original 401
+      if (retryRes.status !== 401) return retryRes;
+      // Both 401 — return retry (still 401) for consistent handling
+      return retryRes;
+    } catch {
+      // Refresh failed — return original 401
+      return res;
+    }
+  }
+
+  return res;
 }
 
 /**

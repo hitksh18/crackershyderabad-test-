@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Fragment } from 'react';
-import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
+import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useNavigate } from 'react-router-dom';
 
@@ -8,75 +8,39 @@ import Footer from '../components/Footer';
 import ScrollReveal from '../components/ui/ScrollReveal';
 import { Skeleton } from '../components/ui/Skeleton';
 
-import HomeHero from '../components/home/HomeHero';
+import StorefrontHero from '../components/home/StorefrontHero';
 import CategoryShowcase from '../components/home/CategoryShowcase';
 import DealsSection from '../components/home/DealsSection';
 import FeaturedSection from '../components/home/FeaturedSection';
 import HomeProductRail from '../components/home/HomeProductRail';
 import WholesaleSection from '../components/home/WholesaleSection';
 import PromoSection from '../components/home/PromoSection';
+import SecondaryBannerGrid from '../components/home/SecondaryBannerGrid';
+import ProductBannerGrid from '../components/home/ProductBannerGrid';
 import TrustSection from '../components/home/TrustSection';
 import NewsletterBlock from '../components/home/NewsletterBlock';
 import TrackOrderBlock from '../components/home/TrackOrderBlock';
 import { categoryDefs } from '../components/home/homeData';
 
 import { useHomepageSettings } from '../hooks/useHomepageSettings';
-import { readHomepageSections, DEFAULT_SECTION_ORDER } from '../lib/homepageSections';
+import { readHomepageConfig, DEFAULT_HERO_BANNERS, DEFAULT_PROMO_CARDS } from '../lib/homepage';
+import { readBuilderConfig } from '../lib/homepageBuilder';
+import { readSiteSettings, firstAnnouncementText } from '../lib/siteSettings';
+import { resolveTrustCards } from '../lib/trustIcons';
 import Seo from '../components/Seo';
 import toast from '../utils/toast';
 
-/* Admin-editable section copy; these are the defaults before the Canvas
-   editor saves settings/homepageContent. */
 const DEFAULT_CONTENT = {
-  categories: {
-    eyebrow: 'Explore',
-    title: 'Shop by Categories',
-    subtitle: 'Handpicked ranges for every celebration',
-  },
-  deals: {
-    eyebrow: 'Festive Offers',
-    title: 'Festive Deals',
-    subtitle: 'Limited-time offers for every celebration',
-  },
-  featured: {
-    eyebrow: 'Handpicked',
-    title: 'Featured Products',
-    subtitle: 'Our best-selling fireworks handpicked for you',
-  },
-  bestSellers: {
-    eyebrow: 'Top Rated',
-    title: 'Best Sellers',
-    subtitle: 'The most-loved picks from real orders',
-  },
-  trust: {
-    eyebrow: 'Why Us',
-    title: 'Why Choose Crackers Hyderabad',
-    subtitle: 'The city’s most trusted fireworks destination',
-  },
+  categories: { eyebrow: 'Explore', title: 'Shop by Categories', subtitle: 'Handpicked ranges for every celebration' },
+  deals: { eyebrow: 'Festive Offers', title: 'Festive Deals', subtitle: 'Limited-time offers for every celebration' },
+  featured: { eyebrow: 'Handpicked', title: 'Featured Products', subtitle: 'Our best-selling fireworks handpicked for you' },
+  bestSellers: { eyebrow: 'Top Rated', title: 'Best Sellers', subtitle: 'The most-loved picks from real orders' },
+  trust: { eyebrow: 'Why Us', title: 'Why Choose Crackers Hyderabad', subtitle: 'The city’s most trusted fireworks destination' },
 };
 
-/* Hero slides are small and rarely change; a local copy lets the first paint
-   already show the real carousel instead of a blank shell while the Firestore
-   fetch resolves. Best-effort: private mode or quota limits just skip it. */
-const HERO_SLIDES_CACHE_KEY = 'ch:heroSlides:v1';
-
-const readCachedSlides = () => {
-  try {
-    const raw = localStorage.getItem(HERO_SLIDES_CACHE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : null;
-  } catch {
-    return null;
-  }
-};
-
-const cacheSlides = (slides) => {
-  try {
-    localStorage.setItem(HERO_SLIDES_CACHE_KEY, JSON.stringify(slides));
-  } catch {
-    // Cache is best-effort; storage can be unavailable.
-  }
+const DEFAULT_STRIP = {
+  banner1Text: 'Your trusted online fireworks store in Hyderabad — from premium gift boxes to everyday sparklers',
+  banner1Enabled: true,
 };
 
 const Home = () => {
@@ -89,144 +53,67 @@ const Home = () => {
   const { settings: homepageSettings, loading: settingsLoading } = useHomepageSettings();
   const categoriesRef = useRef(null);
 
-  const [heroSettings, setHeroSettings] = useState({
-    mainHeading: "Hyderabad's Premium Fireworks Store",
-    mainHeadingSize: 'clamp(2.25rem, 1.55rem + 3.2vw, 3.75rem)',
-    subHeading: 'Celebrate every occasion with premium quality crackers, exciting festival offers, and safe doorstep delivery.',
-    subHeadingSize: 'clamp(1.05rem, 1.8vw, 1.3rem)',
-    ctaText: 'Shop Crackers'
-  });
-
-  const [bannerSettings, setBannerSettings] = useState({
-    banner1Text: 'Your trusted online fireworks store in Hyderabad — from premium gift boxes to everyday sparklers',
-    banner1Enabled: true
-  });
-
-  // null until the heroSlides fetch resolves (or a cached copy is available),
-  // so the hero never has to guess whether the carousel exists.
-  const [heroSlides, setHeroSlides] = useState(readCachedSlides);
+  const [homepageConfig, setHomepageConfig] = useState(null);
+  const [builderConfig, setBuilderConfig] = useState(null);
+  const [siteSettings, setSiteSettings] = useState(null);
+  const [strip, setStrip] = useState(DEFAULT_STRIP);
   const [festiveDeals, setFestiveDeals] = useState([]);
-  const [homepageContent, setHomepageContent] = useState(DEFAULT_CONTENT);
   const [categoryShowcaseConfig, setCategoryShowcaseConfig] = useState(null);
 
-  // Published homepage-section configuration, or null while unknown. A draft
-  // (or absent) config falls back to the canonical default order.
-  const [sectionConfig, setSectionConfig] = useState(null);
-
   useEffect(() => {
-    const fetchProducts = async () => {
+    const fetchAll = async () => {
       try {
-        const snapshot = await getDocs(collection(db, 'products'));
-        const all = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        setAllProducts(all);
-      } catch (error) {
-        console.error('Error fetching products:', error);
+        const [productsSnap, promoSnap, dealsSnap, catSnap, builder, site, homepage, stripSnap] = await Promise.all([
+          getDocs(collection(db, 'products')).catch(() => ({ docs: [] })),
+          getDocs(collection(db, 'promotionalBanners')).catch(() => ({ docs: [] })),
+          getDocs(collection(db, 'festiveDeals')).catch(() => ({ docs: [] })),
+          (async () => {
+            try {
+              const { getDoc, doc } = await import('firebase/firestore');
+              const cfg = await getDoc(doc(db, 'settings', 'categoryShowcase'));
+              return cfg.exists() ? cfg.data() : null;
+            } catch { return null; }
+          })(),
+          readBuilderConfig().catch(() => null),
+          readSiteSettings().catch(() => null),
+          readHomepageConfig().catch(() => null),
+          (async () => {
+            try {
+              const { getDoc, doc } = await import('firebase/firestore');
+              const d = await getDoc(doc(db, 'bannerSettings', 'main'));
+              return d.exists() ? d.data() : null;
+            } catch { return null; }
+          })(),
+        ]);
+        setAllProducts(productsSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+        setPromotionalBanners(promoSnap.docs.map(d => ({ id: d.id, ...d.data() })).filter(d => d.enabled !== false).sort((a, b) => (b.order || 0) - (a.order || 0)));
+        setFestiveDeals(dealsSnap.docs.map(d => ({ id: d.id, ...d.data() })).filter(d => d.enabled !== false).sort((a, b) => (a.order || 0) - (b.order || 0)));
+        if (catSnap) setCategoryShowcaseConfig(catSnap);
+        if (builder) setBuilderConfig(builder);
+        if (site) setSiteSettings(site);
+        if (homepage) {
+          setHomepageConfig(homepage);
+          /* Trace the storefront read side: what the Hero will render. */
+          if (import.meta.env.DEV) {
+            console.log('[home] homepageConfig loaded:', {
+              bannerCount: (homepage.heroBanners || []).length,
+              banners: (homepage.heroBanners || []).map((b, i) => ({
+                pos: i + 1,
+                id: b.id,
+                enabled: b.enabled !== false,
+                image: b.imageDesktop || b.image || null,
+              })),
+            });
+          }
+        }
+        if (stripSnap) setStrip(prev => ({ ...prev, ...stripSnap }));
+      } catch (e) {
+        console.error(e);
       } finally {
         setLoading(false);
       }
     };
-
-    const fetchPromotionalBanners = async () => {
-      try {
-        const snapshot = await getDocs(collection(db, 'promotionalBanners'));
-        const bannersData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        setPromotionalBanners(bannersData.sort((a, b) => (b.order || 0) - (a.order || 0)));
-      } catch (error) {
-        console.error('Error fetching promotional banners:', error);
-      }
-    };
-
-    const fetchHeroSlides = async () => {
-      try {
-        const snapshot = await getDocs(collection(db, 'heroSlides'));
-        const slides = snapshot.docs
-          .map(doc => ({ id: doc.id, ...doc.data() }))
-          .filter(s => s.enabled !== false)
-          .sort((a, b) => (a.order || 0) - (b.order || 0));
-        setHeroSlides(slides);
-        cacheSlides(slides);
-      } catch (error) {
-        console.error('Error fetching hero slides:', error);
-      }
-    };
-
-    const fetchFestiveDeals = async () => {
-      try {
-        const snapshot = await getDocs(collection(db, 'festiveDeals'));
-        const deals = snapshot.docs
-          .map(doc => ({ id: doc.id, ...doc.data() }))
-          .filter(d => d.enabled !== false)
-          .sort((a, b) => (a.order || 0) - (b.order || 0));
-        setFestiveDeals(deals);
-      } catch (error) {
-        console.error('Error fetching festive deals:', error);
-      }
-    };
-
-    const fetchHomepageContent = async () => {
-      try {
-        const contentDoc = await getDoc(doc(db, 'settings', 'homepageContent'));
-        if (contentDoc.exists()) {
-          setHomepageContent(prev => deepMerge(prev, contentDoc.data()));
-        }
-      } catch (error) {
-        console.error('Error fetching homepage content:', error);
-      }
-    };
-
-    const fetchCategoryShowcase = async () => {
-      try {
-        const configDoc = await getDoc(doc(db, 'settings', 'categoryShowcase'));
-        if (configDoc.exists()) {
-          setCategoryShowcaseConfig(configDoc.data());
-        }
-      } catch (error) {
-        console.error('Error fetching category showcase config:', error);
-      }
-    };
-
-    const fetchHeroSettings = async () => {
-      try {
-        const heroDoc = await getDoc(doc(db, 'heroSettings', 'main'));
-        if (heroDoc.exists()) {
-          setHeroSettings(prev => ({ ...prev, ...heroDoc.data() }));
-        }
-      } catch (error) {
-        console.error('Error fetching hero settings:', error);
-      }
-    };
-
-    const fetchBannerSettings = async () => {
-      try {
-        const bannerDoc = await getDoc(doc(db, 'bannerSettings', 'main'));
-        if (bannerDoc.exists()) {
-          setBannerSettings(prev => ({ ...prev, ...bannerDoc.data() }));
-        }
-      } catch (error) {
-        console.error('Error fetching banner settings:', error);
-      }
-    };
-
-    const fetchSectionConfig = async () => {
-      try {
-        const config = await readHomepageSections();
-        // Only a published configuration changes the storefront.
-        setSectionConfig(config.status === 'published' ? config.sections : null);
-      } catch (error) {
-        console.error('Error fetching homepage sections:', error);
-        setSectionConfig(null);
-      }
-    };
-
-    fetchProducts();
-    fetchPromotionalBanners();
-    fetchHeroSlides();
-    fetchFestiveDeals();
-    fetchHomepageContent();
-    fetchCategoryShowcase();
-    fetchHeroSettings();
-    fetchBannerSettings();
-    fetchSectionConfig();
+    fetchAll();
   }, []);
 
   const byAdminOrder = (a, b) =>
@@ -236,23 +123,36 @@ const Home = () => {
 
   const featuredProducts = allProducts
     .filter(p => p.isFeatured)
-    .concat(
-      allProducts
-        .filter(p => !p.isFeatured)
-        .sort(byAdminOrder)
-    )
-    .slice(0, 12);
+    .concat(allProducts.filter(p => !p.isFeatured).sort(byAdminOrder));
 
-  // Best sellers come from real order data: the API increments salesCount on
-  // every product when an order is placed. No manual selection here.
   const bestSellers = [...allProducts]
     .sort(
       (a, b) =>
         (b.salesCount || 0) - (a.salesCount || 0) ||
         (a.sortOrder ?? 9999) - (b.sortOrder ?? 9999) ||
         (a.name || '').localeCompare(b.name || '')
-    )
-    .slice(0, 10);
+    );
+
+  /* Canvas-editable copy. Every field falls back to the long-standing
+     hardcoded editorial, so a homepage saved before the canvas still
+     renders exactly as before. maxItems 0/undefined means "show all". */
+  const sectionText = homepageConfig?.sectionText || {};
+  const maxOrAll = (arr, n) => (n && n > 0 ? arr.slice(0, n) : arr);
+  const homepageContent = {
+    categories: { ...DEFAULT_CONTENT.categories, ...(sectionText.categories || {}) },
+    deals: { ...DEFAULT_CONTENT.deals, ...(sectionText.deals || {}) },
+    featured: { ...DEFAULT_CONTENT.featured, ...(sectionText.featured || {}) },
+    bestSellers: { ...DEFAULT_CONTENT.bestSellers, ...(sectionText.bestSellers || {}) },
+    trust: { ...DEFAULT_CONTENT.trust, ...(sectionText.trust || {}) },
+  };
+  const newsletterCopy = sectionText.newsletter || undefined;
+  const wholesaleCopy = sectionText.wholesale || undefined;
+  const resolvedTrust = resolveTrustCards(homepageConfig?.trustCards);
+  const trustCards = resolvedTrust ? resolvedTrust.filter(c => c.enabled !== false) : undefined;
+  const featuredShown = maxOrAll(featuredProducts, sectionText.featured?.maxItems ?? 12);
+  const bestShown = maxOrAll(bestSellers, sectionText.bestSellers?.maxItems ?? 10);
+  const dealsShown = maxOrAll(festiveDeals, sectionText.deals?.maxItems);
+  const announcementLine = firstAnnouncementText(siteSettings?.announcementBar, strip.banner1Text);
 
   const countInCategory = (matchNames) => {
     return allProducts.filter(p => {
@@ -263,23 +163,16 @@ const Home = () => {
     }).length;
   };
 
-  // Admin-controlled category visibility and order (settings/categoryShowcase).
   const visibleCategories = (() => {
     const cfg = categoryShowcaseConfig || {};
     const hidden = new Set(cfg.hidden || []);
     let list = categoryDefs.filter(cat => !hidden.has(cat.slug));
     if (Array.isArray(cfg.order) && cfg.order.length > 0) {
       const rank = new Map(cfg.order.map((slug, i) => [slug, i]));
-      list = [...list].sort(
-        (a, b) => (rank.get(a.slug) ?? 999) - (rank.get(b.slug) ?? 999)
-      );
+      list = [...list].sort((a, b) => (rank.get(a.slug) ?? 999) - (rank.get(b.slug) ?? 999));
     }
     return list;
   })();
-
-  const scrollToCategories = () => {
-    categoriesRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
 
   const handleSubscribe = (e) => {
     e.preventDefault();
@@ -294,148 +187,195 @@ const Home = () => {
   const handleTrackOrder = (e) => {
     e.preventDefault();
     if (trackOrderId.trim()) {
-      // Router state, not the query string: a tracking code grants access to
-      // the order, so it should not land in history or referrer headers.
       navigate('/track-order', { state: { code: trackOrderId.trim() } });
     }
   };
 
-  const effectiveSections = sectionConfig || DEFAULT_SECTION_ORDER.map(id => ({ id, enabled: true }));
-  const visibleSections = effectiveSections.filter(section => section.enabled);
+  const hero = homepageConfig ? (
+    <StorefrontHero
+      banners={(homepageConfig.heroBanners || []).length > 0 ? homepageConfig.heroBanners : DEFAULT_HERO_BANNERS}
+      cards={(homepageConfig.promoCards || []).length > 0 ? homepageConfig.promoCards : DEFAULT_PROMO_CARDS}
+      durationSec={homepageConfig.carouselDurationSec}
+      loading={false}
+    />
+  ) : (
+    <StorefrontHero banners={[]} cards={[]} durationSec={5} loading />
+  );
 
-  const renderSection = {
-    hero: (
-      <HomeHero
-        slides={heroSlides}
-        heroSettings={heroSettings}
-        bannerSettings={bannerSettings}
-        allProducts={allProducts}
-        onBrowseCategories={scrollToCategories}
-      />
-    ),
+  // Builder-driven section order with fallback
+  const sections = (builderConfig?.sections || []).filter(s => s.enabled !== false).sort((a,b) => (a.order??999)-(b.order??999));
+  const hasBuilder = sections.length > 0;
 
-    categories: (
-      <CategoryShowcase
-        sectionRef={categoriesRef}
-        countInCategory={countInCategory}
-        categories={visibleCategories}
-        heading={homepageContent.categories}
-      />
-    ),
-
-    deals: <DealsSection deals={festiveDeals} heading={homepageContent.deals} />,
-
-    featured: (
-      <FeaturedSection
-        products={featuredProducts}
-        heading={homepageContent.featured}
-        loading={loading}
-      />
-    ),
-
-    bestSellers: (
-      <section className="section-pad" style={{ background: 'var(--surface-page)' }}>
-        <div className="shell-wide">
-          <HomeProductRail
-            eyebrow={homepageContent.bestSellers.eyebrow}
-            title={homepageContent.bestSellers.title}
-            subtitle={homepageContent.bestSellers.subtitle}
-            products={bestSellers}
-            loading={loading}
-            railLabel="best sellers"
-          />
-        </div>
-      </section>
-    ),
-
-    promo: <PromoSection promotionalBanners={promotionalBanners} />,
-
-    adminBanner:
-      settingsLoading ? (
-        <section className="section-pad-sm" style={{ background: 'var(--surface-card)' }}>
-          <div className="shell-wide" role="status" aria-live="polite" aria-busy="true">
-            <span className="sr-only">Loading homepage banner</span>
-            <Skeleton className="h-56 w-full sm:h-72" rounded="var(--r-xl)" />
+  const renderSection = (section) => {
+    switch (section.type) {
+      case 'hero':
+        return <Fragment key={section.id}>{hero}</Fragment>;
+      case 'promoCards':
+        return null; // hero already includes promoCards
+      case 'announcement':
+        return siteSettings?.announcementBar?.enabled ? (
+          <div key={section.id} className="relative" style={{ borderTop: '1px solid rgba(210,166,79,0.22)', background: 'rgba(26,23,20,0.42)' }}>
+            <div className="shell-wide py-3.5 text-center">
+              <p className="text-xs font-semibold sm:text-sm" style={{ fontFamily: 'var(--font-body)', color: 'var(--text-on-dark)' }}>
+                {announcementLine}
+              </p>
+            </div>
           </div>
-        </section>
-      ) : homepageSettings.bannerImageUrl ? (
-        <section className="section-pad-sm" style={{ background: 'var(--surface-card)' }}>
-          <div className="shell-wide">
-            <ScrollReveal
-              distance={20}
-              className="overflow-hidden"
-              style={{ borderRadius: 'var(--r-xl)', boxShadow: 'var(--shadow-lg)' }}
-            >
-              <img
-                src={homepageSettings.bannerImageUrl}
-                alt={homepageSettings.bannerImageAlt || 'Crackers Hyderabad Banner'}
-                loading="lazy"
-                className="max-h-[400px] w-full object-cover sm:max-h-[500px]"
-              />
-            </ScrollReveal>
+        ) : null;
+      case 'stableMessage':
+        return siteSettings?.stableMessage?.enabled ? (
+          <div key={section.id} className="relative" style={{ borderTop: '1px solid rgba(210,166,79,0.22)', background: 'rgba(26,23,20,0.42)' }}>
+            <div className="shell-wide py-3.5 text-center">
+              <p className="text-xs font-semibold sm:text-sm" style={{ fontFamily: 'var(--font-body)', color: 'var(--text-on-dark)' }}>
+                {siteSettings.stableMessage.text}
+              </p>
+            </div>
           </div>
-        </section>
-      ) : null,
-
-    trust: <TrustSection heading={homepageContent.trust} />,
-
-    newsletterTrack: (
-      <section className="section-pad" style={{ background: 'var(--surface-sunken)' }}>
-        <div className="shell-wide">
-          <div className="grid gap-6 lg:grid-cols-[48fr_52fr] lg:gap-6">
-            <NewsletterBlock
-              email={newsletterEmail}
-              onEmailChange={(e) => setNewsletterEmail(e.target.value)}
-              onSubmit={handleSubscribe}
-            />
-            <TrackOrderBlock
-              orderId={trackOrderId}
-              onOrderIdChange={(e) => setTrackOrderId(e.target.value)}
-              onSubmit={handleTrackOrder}
-            />
+        ) : strip.banner1Enabled ? (
+          <div key={section.id} className="relative" style={{ borderTop: '1px solid rgba(210,166,79,0.22)', background: 'rgba(26,23,20,0.42)' }}>
+            <div className="shell-wide py-3.5 text-center">
+              <p className="text-xs font-semibold sm:text-sm" style={{ fontFamily: 'var(--font-body)', color: 'var(--text-on-dark)' }}>
+                {strip.banner1Text}
+              </p>
+            </div>
           </div>
-        </div>
-      </section>
-    ),
-
-    wholesale: <WholesaleSection />,
-
-    footer: <Footer />,
+        ) : null;
+      case 'categories':
+        return <CategoryShowcase key={section.id} sectionRef={categoriesRef} countInCategory={countInCategory} categories={visibleCategories} heading={homepageContent.categories} />;
+      case 'featured':
+        return <FeaturedSection key={section.id} products={featuredShown} heading={homepageContent.featured} loading={loading} />;
+      case 'bestSellers':
+        return (
+          <section key={section.id} className="section-pad" style={{ background: 'var(--surface-page)' }}>
+            <div className="shell-wide">
+              <HomeProductRail eyebrow={homepageContent.bestSellers.eyebrow} title={homepageContent.bestSellers.title} subtitle={homepageContent.bestSellers.subtitle} products={bestShown} loading={loading} railLabel="best sellers" />
+            </div>
+          </section>
+        );
+      case 'promoBanners':
+        return <PromoSection key={section.id} promotionalBanners={promotionalBanners} />;
+      case 'secondaryBanners':
+        return <SecondaryBannerGrid key={section.id} banners={homepageConfig?.secondaryBanners || []} />;
+      case 'productBanners':
+        return <ProductBannerGrid key={section.id} banners={homepageConfig?.productBanners || []} />;
+      case 'festiveDeals':
+        return dealsShown.length > 0 ? <DealsSection key={section.id} deals={dealsShown} heading={homepageContent.deals} /> : null;
+      case 'bannerImage':
+        return settingsLoading ? (
+          <section key={section.id} className="section-pad-sm" style={{ background: 'var(--surface-card)' }}>
+            <div className="shell-wide" role="status" aria-live="polite" aria-busy="true">
+              <span className="sr-only">Loading homepage banner</span>
+              <Skeleton className="h-56 w-full sm:h-72" rounded="var(--r-xl)" />
+            </div>
+          </section>
+        ) : homepageSettings?.bannerImageUrl ? (
+          <section key={section.id} className="section-pad-sm" style={{ background: 'var(--surface-card)' }}>
+            <div className="shell-wide">
+              <ScrollReveal distance={20} className="overflow-hidden" style={{ borderRadius: 'var(--r-xl)', boxShadow: 'var(--shadow-lg)' }}>
+                <img src={homepageSettings.bannerImageUrl} alt={homepageSettings.bannerImageAlt || 'Crackers Hyderabad Banner'} loading="lazy" className="max-h-[400px] w-full object-cover sm:max-h-[500px]" />
+              </ScrollReveal>
+            </div>
+          </section>
+        ) : null;
+      case 'trust':
+        return <TrustSection key={section.id} heading={homepageContent.trust} cards={trustCards} />;
+      case 'newsletter':
+        return (
+          <section key={section.id} className="section-pad" style={{ background: 'var(--surface-sunken)' }}>
+            <div className="shell-wide">
+              <div className="grid gap-6 lg:grid-cols-[48fr_52fr] lg:gap-6">
+                <NewsletterBlock email={newsletterEmail} onEmailChange={(e) => setNewsletterEmail(e.target.value)} onSubmit={handleSubscribe} copy={newsletterCopy} />
+                <TrackOrderBlock orderId={trackOrderId} onOrderIdChange={(e) => setTrackOrderId(e.target.value)} onSubmit={handleTrackOrder} />
+              </div>
+            </div>
+          </section>
+        );
+      case 'wholesale':
+        return <WholesaleSection key={section.id} copy={wholesaleCopy} />;
+      case 'banner': {
+        // Generic banner section
+        const cfg = section.config || {};
+        if (!cfg.banners || cfg.banners.length === 0) return null;
+        return (
+          <section key={section.id} className="section-pad-sm" style={{ background: 'var(--surface-card)' }}>
+            <div className="shell-wide">
+              <div className="grid gap-4">
+                {cfg.banners.filter(b => b.enabled !== false).map(b => (
+                  <a key={b.id} href={b.ctaLink || '/products'} className="overflow-hidden rounded-2xl" style={{ border: '1px solid var(--hairline)' }}>
+                    <img src={b.imageDesktop || b.image} alt={b.alt || ''} className="w-full object-cover" style={{ maxHeight: '400px' }} />
+                  </a>
+                ))}
+              </div>
+            </div>
+          </section>
+        );
+      }
+      default:
+        return null;
+    }
   };
 
   return (
     <div className="min-h-screen">
-      <Seo
-        title="Crackers Hyderabad — Premium Fireworks & Wholesale Crackers"
-        description="Premium fireworks and wholesale crackers in Hyderabad. Gift boxes, sparklers, rockets, flower pots and festival collections at wholesale pricing, with order tracking and doorstep delivery."
-        canonical="/"
-      />
-      {visibleSections.map((section) => (
-        <Fragment key={section.id}>{renderSection[section.id]}</Fragment>
-      ))}
+      <Seo title="Crackers Hyderabad — Premium Fireworks & Wholesale Crackers" description="Premium fireworks and wholesale crackers in Hyderabad. Gift boxes, sparklers, rockets, flower pots and festival collections at wholesale pricing, with order tracking and doorstep delivery." canonical="/" />
+
+      {hasBuilder ? (
+        sections.map(renderSection)
+      ) : (
+        <>
+          {hero}
+          {strip.banner1Enabled && (
+            <div className="relative" style={{ borderTop: '1px solid rgba(210,166,79,0.22)', background: 'rgba(26,23,20,0.42)' }}>
+              <div className="shell-wide py-3.5 text-center">
+                <p className="text-xs font-semibold sm:text-sm" style={{ fontFamily: 'var(--font-body)', color: 'var(--text-on-dark)' }}>
+                  {strip.banner1Text}
+                </p>
+              </div>
+            </div>
+          )}
+          <CategoryShowcase sectionRef={categoriesRef} countInCategory={countInCategory} categories={visibleCategories} heading={homepageContent.categories} />
+          <FeaturedSection products={featuredShown} heading={homepageContent.featured} loading={loading} />
+          <section className="section-pad" style={{ background: 'var(--surface-page)' }}>
+            <div className="shell-wide">
+              <HomeProductRail eyebrow={homepageContent.bestSellers.eyebrow} title={homepageContent.bestSellers.title} subtitle={homepageContent.bestSellers.subtitle} products={bestShown} loading={loading} railLabel="best sellers" />
+            </div>
+          </section>
+          <PromoSection promotionalBanners={promotionalBanners} />
+          <SecondaryBannerGrid banners={homepageConfig?.secondaryBanners || []} />
+          <ProductBannerGrid banners={homepageConfig?.productBanners || []} />
+          {dealsShown.length > 0 && <DealsSection deals={dealsShown} heading={homepageContent.deals} />}
+          {settingsLoading ? (
+            <section className="section-pad-sm" style={{ background: 'var(--surface-card)' }}>
+              <div className="shell-wide" role="status" aria-live="polite" aria-busy="true">
+                <span className="sr-only">Loading homepage banner</span>
+                <Skeleton className="h-56 w-full sm:h-72" rounded="var(--r-xl)" />
+              </div>
+            </section>
+          ) : homepageSettings.bannerImageUrl ? (
+            <section className="section-pad-sm" style={{ background: 'var(--surface-card)' }}>
+              <div className="shell-wide">
+                <ScrollReveal distance={20} className="overflow-hidden" style={{ borderRadius: 'var(--r-xl)', boxShadow: 'var(--shadow-lg)' }}>
+                  <img src={homepageSettings.bannerImageUrl} alt={homepageSettings.bannerImageAlt || 'Crackers Hyderabad Banner'} loading="lazy" className="max-h-[400px] w-full object-cover sm:max-h-[500px]" />
+                </ScrollReveal>
+              </div>
+            </section>
+          ) : null}
+          <TrustSection heading={homepageContent.trust} cards={trustCards} />
+          <section className="section-pad" style={{ background: 'var(--surface-sunken)' }}>
+            <div className="shell-wide">
+              <div className="grid gap-6 lg:grid-cols-[48fr_52fr] lg:gap-6">
+                <NewsletterBlock email={newsletterEmail} onEmailChange={(e) => setNewsletterEmail(e.target.value)} onSubmit={handleSubscribe} copy={newsletterCopy} />
+                <TrackOrderBlock orderId={trackOrderId} onOrderIdChange={(e) => setTrackOrderId(e.target.value)} onSubmit={handleTrackOrder} />
+              </div>
+            </div>
+          </section>
+          <WholesaleSection copy={wholesaleCopy} />
+        </>
+      )}
+
+      <Footer />
     </div>
   );
-};
-
-/* Shallow-merge per section group, so a stored doc may override only some
-   groups and some fields without losing the rest of the defaults. */
-const deepMerge = (base, override) => {
-  const out = { ...base };
-  for (const key of Object.keys(override)) {
-    const baseValue = base[key];
-    const overrideValue = override[key];
-    if (
-      baseValue &&
-      overrideValue &&
-      typeof baseValue === 'object' &&
-      typeof overrideValue === 'object'
-    ) {
-      out[key] = { ...baseValue, ...overrideValue };
-    } else {
-      out[key] = overrideValue;
-    }
-  }
-  return out;
 };
 
 export default Home;

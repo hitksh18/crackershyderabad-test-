@@ -40,9 +40,9 @@ const Orders = lazy(() => import('./pages/Orders'));
 const AdminOrderDetail = lazy(() => import('./pages/AdminOrderDetail'));
 const Billing = lazy(() => import('./pages/Billing'));
 const PriceList = lazy(() => import('./pages/PriceList'));
-const CanvasEditor = lazy(() => import('./pages/CanvasEditor'));
 const UserManagement = lazy(() => import('./pages/UserManagement'));
 const AdminCategories = lazy(() => import('./pages/AdminCategories'));
+const HomepageBuilder = lazy(() => import('./pages/HomepageBuilder'));
 
 /* Roles permitted on the two shared staff surfaces. These deliberately mirror
    the navigation predicates in Navbar/MobileMenu — if you change one, change
@@ -61,11 +61,14 @@ function AppContent() {
   const location = useLocation();
   const reduced = useReducedMotion();
   const isHomePage = location.pathname === '/';
+  const isProductsPage = location.pathname === '/products';
   const showTopBanner = ['/', '/products', '/cart', '/profile'].includes(location.pathname);
   // The billing register is a dedicated POS terminal: it owns the whole
   // viewport and must not carry the storefront chrome (banner, navbar,
   // copyright, floating WhatsApp button).
   const isBillingPath = location.pathname === '/admin/billing';
+  const isDashboardPath = location.pathname === '/admin/dashboard';
+  const isAdminPath = location.pathname.startsWith('/admin');
 
   /* Two independent pageview channels, deliberately not merged.
 
@@ -116,21 +119,23 @@ function AppContent() {
       </a>
 
       <ScrollToTop />
-      {!isBillingPath && showTopBanner && <TopBanner />}
-      {!isBillingPath && <Navbar />}
+      {!isBillingPath && !isAdminPath && showTopBanner && <TopBanner />}
+      {!isBillingPath && !isAdminPath && <Navbar />}
 
       <main
         id="main-content"
         tabIndex={-1}
-        className={`focus:outline-none ${isBillingPath ? 'min-h-0 flex-1' : 'flex-grow'}`}
+        className={`focus:outline-none ${isBillingPath || isDashboardPath ? 'flex min-h-0 flex-1 flex-col overflow-hidden' : 'flex-grow'}`}
       >
         {/* Enter-only transition: the incoming page never waits on an exit
-            animation, so navigation stays as fast as it was. */}
+            animation, so navigation stays as fast as it was. The Products
+            page renders without the entrance animation so the catalogue is
+            immediately stable on load/refresh. */}
         <motion.div
           key={location.pathname}
           variants={pageVariants(reduced)}
-          initial="initial"
-          animate="animate"
+          initial={isProductsPage ? false : 'initial'}
+          animate={isProductsPage ? undefined : 'animate'}
         >
           <Suspense fallback={<RouteFallback />}>
             <Routes location={location}>
@@ -142,7 +147,14 @@ function AppContent() {
               <Route path="/order-success" element={<OrderSuccess />} />
               <Route path="/track-order" element={<TrackOrder />} />
               <Route path="/login" element={<Login />} />
-              <Route path="/profile" element={<Profile />} />
+              <Route
+                path="/profile"
+                element={
+                  <ProtectedRoute>
+                    <Profile />
+                  </ProtectedRoute>
+                }
+              />
               <Route
                 path="/my-orders"
                 element={
@@ -232,14 +244,6 @@ function AppContent() {
                 }
               />
               <Route
-                path="/admin/canvas-editor"
-                element={
-                  <ProtectedRoute adminOnly>
-                    <CanvasEditor />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
                 path="/admin/users"
                 element={
                   <ProtectedRoute adminOnly>
@@ -255,13 +259,21 @@ function AppContent() {
                   </ProtectedRoute>
                 }
               />
+              <Route
+                path="/admin/homepage"
+                element={
+                  <ProtectedRoute adminOnly>
+                    <HomepageBuilder />
+                  </ProtectedRoute>
+                }
+              />
             </Routes>
           </Suspense>
         </motion.div>
       </main>
 
-      {!isHomePage && !isBillingPath && <SimpleCopyright />}
-      {!isBillingPath && <WhatsAppButton />}
+      {!isHomePage && !isBillingPath && !isAdminPath && <SimpleCopyright />}
+      {!isBillingPath && !isAdminPath && <WhatsAppButton />}
       <CustomToast />
     </>
   );
@@ -285,8 +297,16 @@ function App() {
 function AppShell() {
   const location = useLocation();
   const isBillingPath = location.pathname === '/admin/billing';
+  const isDashboardPath = location.pathname === '/admin/dashboard';
+  const isAdminPath = location.pathname.startsWith('/admin');
+  // Dashboard overview is a desktop app viewport (no page scroll), other admin pages scroll normally
+  const shellClass = isBillingPath || isDashboardPath
+    ? 'flex h-screen flex-col overflow-hidden'
+    : isAdminPath
+      ? 'flex min-h-screen flex-col'
+      : 'flex min-h-screen flex-col';
   return (
-    <div className={isBillingPath ? 'h-screen overflow-hidden' : 'flex min-h-screen flex-col'}>
+    <div className={shellClass}>
       <AppContent />
     </div>
   );

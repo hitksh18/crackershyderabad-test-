@@ -5,8 +5,8 @@
 
    1. Rules: a public (unauthenticated) read of heroSlides/festiveDeals must
       succeed, and an unauthenticated write must be denied.
-   2. Canvas write patterns: create, update (reorder/rename), disable and
-      delete a hero slide and a festive deal exactly the way CanvasEditor does,
+    2. Homepage write patterns: create, update (reorder/rename), disable and
+       delete a hero slide and a festive deal exactly the way HomepageAdmin does,
       using the project service account (admin).
    3. Cleanup: every test document is removed.
 
@@ -65,7 +65,7 @@ async function main() {
       await publicWrite('festiveDeals', dealId)
     );
 
-    /* --- Canvas-equivalent CRUD on heroSlides --- */
+    /* --- Homepage-equivalent CRUD on heroSlides --- */
     const slideRef = db.collection('heroSlides').doc(slideId);
     await slideRef.set({
       id: slideId,
@@ -91,7 +91,7 @@ async function main() {
       await publicRead('heroSlides', slideId)
     );
 
-    /* --- Canvas-equivalent CRUD on festiveDeals --- */
+    /* --- Homepage-equivalent CRUD on festiveDeals --- */
     const dealRef = db.collection('festiveDeals').doc(dealId);
     await dealRef.set({
       id: dealId,

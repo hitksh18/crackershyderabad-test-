@@ -21,6 +21,7 @@ import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useReducedMotion } from '../hooks/useReducedMotion';
+import { readSiteSettings } from '../lib/siteSettings';
 import { popoverVariants, SPRING } from '../lib/motion';
 import CartNotificationPill from './CartNotificationPill';
 import MobileMenu from './MobileMenu';
@@ -28,6 +29,8 @@ import SearchOverlay from './SearchOverlay';
 import UserAvatar from './UserAvatar';
 
 const PHONE_HREF = 'tel:+919876543210';
+
+const DEFAULT_LOGO = '/images/website/nav-logo.png';
 const DESKTOP_QUERY = '(min-width: 1024px)';
 
 /** Count badge. Remounts on change so the pop reads as "something was added". */
@@ -57,7 +60,7 @@ const CartCountBadge = ({ count, reduced }) => {
 
 const Navbar = () => {
   const { getCartCount } = useCart();
-  const { user, isAdmin, isSales, isBilling, isPacker, isMod, signOut } = useAuth();
+  const { user, isAdmin, isSales, isBilling, isPacker, isMod, signOut, loading: authLoading } = useAuth();
   const { isDark, toggleTheme } = useTheme();
   const reduced = useReducedMotion();
   const isStaffMember = isAdmin || isSales || isBilling || isPacker || isMod;
@@ -65,14 +68,25 @@ const Navbar = () => {
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const isActive = (path) => pathname === path;
-  const isProductsPage = pathname.startsWith('/products');
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [logoUrl, setLogoUrl] = useState(DEFAULT_LOGO);
   const profileMenuRef = useRef(null);
   const navRef = useRef(null);
   const cartCount = getCartCount();
+
+  useEffect(() => {
+    readSiteSettings().then(s => {
+      if (s.branding?.logoUrl) setLogoUrl(s.branding.logoUrl);
+      if (s.branding?.faviconUrl) {
+        let link = document.querySelector("link[rel*='icon']");
+        if (!link) { link = document.createElement('link'); link.rel = 'icon'; document.head.appendChild(link); }
+        link.href = s.branding.faviconUrl;
+      }
+    });
+  }, []);
 
   /* Publish the measured navbar height so sticky page content can clear it
      instead of guessing at a hardcoded offset. */
@@ -180,7 +194,7 @@ const Navbar = () => {
           style={{ background: 'var(--grad-gold)', opacity: 0.55 }}
         />
 
-        <div className="shell relative py-2.5 lg:py-3">
+        <div className="shell relative py-2 lg:py-3">
           {/* ================= Desktop ================= */}
           <div className="hidden items-center gap-4 lg:flex xl:gap-6">
             <Link
@@ -189,7 +203,7 @@ const Navbar = () => {
               aria-label="Crackers Hyderabad, home"
             >
               <img
-                src="/images/website/nav-logo.png"
+                src={logoUrl}
                 alt=""
                 aria-hidden="true"
                 width={64}
@@ -229,12 +243,11 @@ const Navbar = () => {
               </Link>
             </div>
 
-            {!isProductsPage && (
-              <form
-                onSubmit={handleSearchSubmit}
-                role="search"
-                className="search-expand relative mx-auto min-w-0 flex-1 lg:max-w-[420px] xl:max-w-[540px]"
-              >
+            <form
+              onSubmit={handleSearchSubmit}
+              role="search"
+              className="search-expand relative mx-auto min-w-0 flex-1 lg:max-w-[420px] xl:max-w-[540px]"
+            >
               <label htmlFor="site-search" className="sr-only">
                 Search products
               </label>
@@ -264,7 +277,6 @@ const Navbar = () => {
                 Search
               </button>
             </form>
-            )}
 
             <div className="flex shrink-0 items-center gap-2 xl:gap-3">
               <Link
@@ -291,7 +303,17 @@ const Navbar = () => {
                 </Link>
               )}
 
-              {user ? (
+              {authLoading ? (
+                <span
+                  className="inline-flex h-9 w-9 shrink-0 items-center justify-center"
+                  aria-hidden="true"
+                  style={{ color: 'var(--text-muted)' }}
+                >
+                  <span className="h-full w-full rounded-full" style={{ background: 'var(--surface-sunken)' }}>
+                    <span className="skeleton block h-full w-full rounded-full" />
+                  </span>
+                </span>
+              ) : user ? (
                 <div className="relative shrink-0" ref={profileMenuRef}>
                   <button
                     type="button"
@@ -424,11 +446,12 @@ const Navbar = () => {
           </div>
 
           {/* ================= Mobile ================= */}
-          <div className="flex items-center gap-1 lg:hidden">
+          <div className="flex items-center gap-1.5 lg:hidden">
             <button
               type="button"
               onClick={() => setMobileMenuOpen(true)}
-              className="arrow-btn shrink-0"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[var(--r-pill)] border bg-[var(--surface-card)] shadow-xs lg:hidden"
+              style={{ borderColor: 'var(--hairline-strong)', color: 'var(--text-muted)' }}
               aria-label="Open menu"
               aria-haspopup="dialog"
               aria-expanded={mobileMenuOpen}
@@ -438,51 +461,49 @@ const Navbar = () => {
 
             <Link
               to="/"
-              className="flex min-h-[44px] min-w-0 flex-1 items-center px-1"
+              className="flex min-h-[44px] min-w-0 flex-1 items-center justify-center px-1"
               aria-label="Crackers Hyderabad, home"
             >
               <img
-                src="/images/website/nav-logo.png"
+                src={logoUrl}
                 alt=""
                 aria-hidden="true"
-                width={48}
-                height={48}
+                width={40}
+                height={40}
                 decoding="async"
-                className="mr-2 h-12 w-12 shrink-0"
+                className="mr-1.5 h-10 w-10 shrink-0 sm:h-11 sm:w-11"
                 style={{ borderRadius: '50%' }}
               />
               <span
-                className="truncate text-sm font-bold tracking-tight sm:text-lg"
+                className="truncate text-[13px] font-bold tracking-tight leading-tight min-[360px]:text-sm sm:text-base"
                 style={{ fontFamily: 'var(--font-display)', color: 'var(--text-strong)' }}
               >
                 {wordmark}
               </span>
             </Link>
 
-            {/* Hidden on the products page: that page owns its own single
-                search input, matching the desktop bar behaviour. */}
-            {!isProductsPage && (
-              <button
-                type="button"
-                onClick={() => setSearchOpen(true)}
-                className="arrow-btn shrink-0"
-                aria-label="Search products"
-                aria-haspopup="dialog"
-                aria-expanded={searchOpen}
-              >
-                <Search className="h-5 w-5" strokeWidth={2.2} aria-hidden="true" />
-              </button>
-            )}
+            {/* Mobile search is available on every page including products */}
+            <button
+              type="button"
+              onClick={() => setSearchOpen(true)}
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[var(--r-pill)] border bg-[var(--surface-card)] shadow-xs"
+              style={{ borderColor: 'var(--hairline-strong)', color: 'var(--text-muted)' }}
+              aria-label="Search products"
+              aria-haspopup="dialog"
+              aria-expanded={searchOpen}
+            >
+              <Search className="h-5 w-5" strokeWidth={2.2} aria-hidden="true" />
+            </button>
 
             <Link
               to="/cart"
-              className="arrow-btn relative shrink-0"
+              className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-[var(--r-pill)] border bg-[var(--surface-card)] shadow-xs"
               aria-label={`Cart, ${cartCount} items`}
               aria-current={isActive('/cart') ? 'page' : undefined}
               style={
                 isActive('/cart')
                   ? { color: 'var(--ember-600)', borderColor: 'var(--ember-600)' }
-                  : undefined
+                  : { borderColor: 'var(--hairline-strong)', color: 'var(--text-muted)' }
               }
             >
               <ShoppingCart className="h-5 w-5" strokeWidth={2.2} aria-hidden="true" />

@@ -25,7 +25,11 @@ const AUTH_TOAST_MESSAGES = {
   'auth/network-request-failed': 'We could not reach the server. Check your connection and try again.',
   'auth/email-already-in-use': 'Email already in use. Try logging in instead.',
   'auth/weak-password': 'Please choose a password with at least six characters.',
-  'auth/operation-not-allowed': 'This sign-in method is not enabled. Please use another option.',
+  'auth/operation-not-allowed': 'This sign-in method is not enabled. Use email and password, or ask the shop to enable it.',
+  'auth/admin-restricted-operation': 'This sign-in method is not enabled. Use email and password, or ask the shop to enable it.',
+  'auth/unauthorized-domain': 'This domain is not authorized for sign-in. Add it in Firebase Authentication settings and try again.',
+  'auth/account-exists-with-different-credential':
+    'An account already exists with this email. Sign in with email and password instead.',
   'auth/popup-closed-by-user': 'The Google sign-in window was closed before finishing.',
   'auth/cancelled-popup-request': 'The Google sign-in window was closed before finishing.',
   'auth/popup-blocked': 'Your browser blocked the Google sign-in window. Allow pop-ups and retry.',
@@ -127,19 +131,23 @@ export const AuthProvider = ({ children }) => {
       // and must not hold back anything that only needed to know who this is.
       setAuthReady(true);
 
-      if (currentUser) {
-        await fetchUserRole(currentUser);
-      } else {
-        setUserRole(null);
-        setIsAdmin(false);
-        setIsSales(false);
-        setIsBilling(false);
-        setIsPacker(false);
-        setIsMod(false);
-        setIsStaff(false);
+      try {
+        if (currentUser) {
+          await fetchUserRole(currentUser);
+        } else {
+          setUserRole(null);
+          setIsAdmin(false);
+          setIsSales(false);
+          setIsBilling(false);
+          setIsPacker(false);
+          setIsMod(false);
+          setIsStaff(false);
+        }
+      } finally {
+        // Ensure loading clears even if role lookup genuinely fails (CASE C).
+        // Do NOT hide roleError — the UI keeps its retry state.
+        setLoading(false);
       }
-      
-      setLoading(false);
     });
 
     return unsubscribe;
@@ -159,7 +167,7 @@ export const AuthProvider = ({ children }) => {
           email: result.user.email || '',
           phone: result.user.phoneNumber || '',
           createdAt: new Date(),
-        });
+        }, { merge: true });
       }
       
       const role = await fetchUserRole(result.user);
@@ -223,6 +231,10 @@ export const AuthProvider = ({ children }) => {
       setUserRole(null);
       setIsAdmin(false);
       setIsSales(false);
+      setIsBilling(false);
+      setIsPacker(false);
+      setIsMod(false);
+      setIsStaff(false);
       toast.success('Logged out successfully!');
     } catch (error) {
       toast.error(error.message);

@@ -1,21 +1,33 @@
 import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { collection, getDocs, doc, updateDoc, setDoc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Search, Users, RefreshCw, TriangleAlert, LoaderCircle } from 'lucide-react';
+import { ArrowLeft, Search, Users, RefreshCw, Mail, User, Check, Ban, Trash2, Key, Pencil, Clock, Calendar, CircleCheck, CircleX } from 'lucide-react';
 import toast from '../utils/toast';
 import { authFetch, readApiError } from '../utils/apiClient';
 import { useAuth } from '../context/AuthContext';
-import { useReducedMotion } from '../hooks/useReducedMotion';
-import { pageVariants, revealVariants } from '../lib/motion';
 import { roleOptions, roleConfig, configFor } from '../components/admin/userRoles';
-import UserRoleCard from '../components/admin/UserRoleCard';
 import {
   RoleEditorModal,
   ConfirmActionModal,
   ResetLinkModal,
 } from '../components/admin/UserAdminModals';
+
+const formatDate = (dateString) => {
+  if (!dateString) return '—';
+  return new Date(dateString).toLocaleDateString('en-IN', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+};
+
+const getProviderName = (providers) => {
+  if (!providers || providers.length === 0) return '—';
+  if (providers.includes('google.com')) return 'Google';
+  if (providers.includes('password')) return 'Email';
+  return providers[0].replace('.com','');
+};
 
 const UserManagement = () => {
   const [authUsers, setAuthUsers] = useState([]);
@@ -28,9 +40,7 @@ const UserManagement = () => {
   const [editingUser, setEditingUser] = useState(null);
   const [newRole, setNewRole] = useState('');
   const [actionModal, setActionModal] = useState(null);
-  const [apiError, setApiError] = useState(null);
   const { user: currentUser } = useAuth();
-  const reduced = useReducedMotion();
 
   useEffect(() => {
     fetchUsersAndRoles();
@@ -41,28 +51,18 @@ const UserManagement = () => {
     setAuthLoading(true);
     try {
       const response = await authFetch('/api/admin/users');
-
       if (!response.ok) {
-        setApiError(await readApiError(response, 'Could not load accounts.'));
         setAuthUsers([]);
         return;
       }
-
       const data = await response.json();
-
-      if (data.setupRequired) {
-        setApiError('Firebase Admin SDK not configured. Please add the service account key.');
-        setAuthUsers([]);
-      } else if (data.error) {
-        setApiError(data.error);
+      if (data.setupRequired || data.error) {
         setAuthUsers([]);
       } else {
         setAuthUsers(data.users || []);
-        setApiError(null);
       }
     } catch (error) {
       console.error('Error fetching auth users:', error);
-      setApiError('Cannot connect to admin API');
       setAuthUsers([]);
     } finally {
       setAuthLoading(false);
@@ -122,11 +122,6 @@ const UserManagement = () => {
     seenUids.add(storeUser.uid);
   });
 
-  const startEditingRole = (user) => {
-    setEditingUser(user);
-    setNewRole(roles[user.uid] || 'customer');
-  };
-
   const cancelEditing = () => {
     setEditingUser(null);
     setNewRole('');
@@ -153,10 +148,21 @@ const UserManagement = () => {
       }
 
       setRoles(prev => ({ ...prev, [editingUser.uid]: newRole }));
+      // Verify persistence and refresh authoritative state
+      try {
+        const verifySnap = await getDoc(doc(db, 'roles', editingUser.uid));
+        const persisted = verifySnap.exists() ? verifySnap.data().role : null;
+        if (persisted !== newRole) throw new Error('Role not persisted');
+      } catch (e) {
+        console.warn('Role verify failed:', e.message);
+      }
       toast.success(`Role updated to ${newRole} successfully!`, { id: loadingToast });
       cancelEditing();
+      // Re-fetch authoritative state to prevent stale UI
+      fetchUsersAndRoles();
+      fetchAuthUsers();
     } catch (error) {
-      console.error('Error updating role:', error);
+      console.error('Error updating role:', error.code, error.message);
       toast.error('Failed to update role', { id: loadingToast });
     }
   };
@@ -176,8 +182,6 @@ const UserManagement = () => {
       const data = await response.json();
 
       if (data.success) {
-        // The link is a bearer credential for that account, so the server mails
-        // it to the account holder directly and never returns it here.
         setActionModal({ type: 'resetSuccess', user, email: data.email });
         toast.success('Password reset email sent', { id: loadingToast });
       } else {
@@ -210,10 +214,14 @@ const UserManagement = () => {
         ));
         toast.success(disable ? 'Account disabled' : 'Account enabled', { id: loadingToast });
         setActionModal(null);
+        // Refresh authoritative state
+        fetchAuthUsers();
+        fetchUsersAndRoles();
       } else {
         toast.error(data.error || 'Failed to update account', { id: loadingToast });
       }
-    } catch {
+    } catch (e) {
+      console.error('Disable error:', e.code, e.message);
       toast.error('Failed to update account', { id: loadingToast });
     }
   };
@@ -226,7 +234,9 @@ const UserManagement = () => {
       });
 
       if (!response.ok) {
-        toast.error(await readApiError(response, 'Failed to delete user'), { id: loadingToast });
+        const msg = await readApiError(response, 'Failed to delete user');
+        console.warn('Delete failed:', response.status, msg);
+        toast.error(msg, { id: loadingToast });
         return;
       }
 
@@ -236,10 +246,14 @@ const UserManagement = () => {
         setAuthUsers(prev => prev.filter(u => u.uid !== user.uid));
         toast.success('User deleted successfully', { id: loadingToast });
         setActionModal(null);
+        // Refresh authoritative state
+        fetchAuthUsers();
+        fetchUsersAndRoles();
       } else {
         toast.error(data.error || 'Failed to delete user', { id: loadingToast });
       }
-    } catch {
+    } catch (e) {
+      console.error('Delete error:', e.code, e.message);
       toast.error('Failed to delete user', { id: loadingToast });
     }
   };
@@ -269,268 +283,164 @@ const UserManagement = () => {
 
   const displayedUsers = getDisplayedUsers();
   const isLoading = loading || authLoading;
-  const EmptyIcon = roleConfig[activeTab] ? roleConfig[activeTab].icon : Users;
 
   if (isLoading) {
     return (
-      <div className="min-h-screen" style={{ background: 'var(--surface-page)' }}>
-        <div
-          role="status"
-          aria-live="polite"
-          aria-busy="true"
-          className="shell flex flex-col items-center justify-center gap-3 py-24 text-center"
-        >
-          <LoaderCircle
-            className="h-7 w-7 animate-spin"
-            style={{ color: 'var(--ember-600)' }}
-            aria-hidden="true"
-          />
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-            Loading users from Firebase Authentication...
-          </p>
+      <div className="min-h-screen bg-[var(--surface-page)]">
+        <div className="mx-auto w-full max-w-[1600px] px-4 py-6 lg:px-8">
+          <div className="h-10 w-64 animate-pulse rounded-full" style={{ background: 'var(--surface-sunken)' }} />
         </div>
       </div>
     );
   }
 
+  const gridCols = 'minmax(280px,1.9fr) minmax(110px,0.85fr) minmax(100px,0.85fr) minmax(120px,0.85fr) minmax(120px,0.9fr) minmax(130px,0.9fr) minmax(300px,1.35fr)';
+
   return (
-    <div className="min-h-screen" style={{ background: 'var(--surface-page)' }}>
-      <motion.div initial="initial" animate="animate" variants={pageVariants(reduced)}>
-        <div className="shell py-6 md:py-8">
-          <Link
-            to="/admin/dashboard"
-            className="inline-flex items-center gap-2 text-sm font-semibold"
-            style={{ color: 'var(--maroon-700)', minHeight: 44 }}
-          >
-            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-            Back to Dashboard
+    <div className="min-h-screen bg-[var(--surface-page)] text-[var(--text-body)] transition-colors duration-200 overflow-x-hidden">
+      {/* Dedicated Navbar */}
+      <header className="sticky top-0 z-30 flex h-[60px] w-full shrink-0 items-center border-b bg-[var(--surface-card)] px-4 lg:px-8" style={{ borderColor: 'var(--hairline)' }}>
+        <div className="mx-auto flex w-full max-w-[1600px] items-center justify-between gap-4">
+          <Link to="/admin/dashboard" className="inline-flex shrink-0 items-center gap-1.5 text-xs font-semibold" style={{ color: 'var(--ember-600)' }}>
+            <ArrowLeft className="h-4 w-4" /> <span className="hidden sm:inline">Back to Dashboard</span><span className="sm:hidden">Back</span>
           </Link>
+          <h1 className="pointer-events-none absolute left-1/2 hidden -translate-x-1/2 text-sm font-bold tracking-tight sm:block" style={{ color: 'var(--text-strong)', fontFamily: 'var(--font-display)' }}>User Management</h1>
+          <span className="absolute left-1/2 -translate-x-1/2 text-sm font-bold sm:hidden" style={{ color: 'var(--text-strong)', fontFamily: 'var(--font-display)' }}>Users</span>
+          <button type="button" onClick={() => { fetchAuthUsers(); fetchUsersAndRoles(); }} className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border px-3 text-xs font-semibold" style={{ borderColor: 'var(--hairline)', background: 'var(--surface-sunken)', color: 'var(--text-body)' }}>
+            <RefreshCw className="h-4 w-4" /> <span className="hidden sm:inline">Refresh</span>
+          </button>
+        </div>
+      </header>
 
-          {/* ---- Header ---------------------------------------------------- */}
-          <header
-            className="mb-5 mt-2 flex flex-col gap-4 border-b pb-5 md:flex-row md:items-end md:justify-between"
-            style={{ borderColor: 'var(--hairline)' }}
-          >
-            <div className="min-w-0">
-              <span className="label-caps">Access control</span>
-              <h1 className="section-title mt-1">User Management</h1>
-              <p className="mt-1 text-sm" style={{ color: 'var(--text-muted)' }}>
-                {apiError ? (
-                  <span style={{ color: 'var(--gold-600)' }}>{apiError}</span>
-                ) : (
-                  <span className="tabular">
-                    {mergedUsers.length} users from Firebase Authentication
-                  </span>
-                )}
-              </p>
-            </div>
+      <div className="mx-auto w-full max-w-[1600px] px-4 py-3 lg:px-8">
+        {/* Role filters - compact pills */}
+        <div className="flex flex-wrap gap-1.5">
+          {[
+            { key: 'all', label: 'All Users', count: mergedUsers.length },
+            ...roleOptions.map(r => ({ key: r, label: roleConfig[r]?.label || r, count: (usersByRole[r]||[]).length }))
+          ].map(tab => {
+            const isActive = activeTab === tab.key;
+            return (
+              <button
+                key={tab.key}
+                type="button"
+                aria-pressed={isActive}
+                onClick={() => setActiveTab(tab.key)}
+                className="inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-xs font-semibold transition-colors duration-200"
+                style={isActive ? { background: 'var(--text-strong)', color: 'var(--surface-card)', borderColor: 'var(--text-strong)' } : { background: 'var(--surface-card)', color: 'var(--text-muted)', borderColor: 'var(--hairline)' }}
+              >
+                {tab.label} <span className="tabular text-[11px] opacity-70">{tab.count}</span>
+              </button>
+            );
+          })}
+        </div>
 
-            <button
-              type="button"
-              onClick={() => { fetchAuthUsers(); fetchUsersAndRoles(); }}
-              className="btn-outline text-sm"
-            >
-              <RefreshCw className="h-4 w-4" aria-hidden="true" />
-              Refresh
-            </button>
-          </header>
+        {/* Search + count */}
+        <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="relative w-full sm:max-w-[380px]">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" style={{ color: 'var(--text-subtle)' }} />
+            <input
+              type="text"
+              placeholder="Search by name, email, or UID..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="h-9 w-full rounded-full border bg-[var(--surface-card)] pl-10 pr-4 text-sm placeholder:text-[var(--text-subtle)] focus:outline-none transition-colors duration-200"
+              style={{ borderColor: 'var(--hairline)', color: 'var(--text-strong)' }}
+            />
+          </div>
+          <span className="tabular text-xs" style={{ color: 'var(--text-muted)' }}>{displayedUsers.length} users</span>
+        </div>
 
-          {/* ---- Admin SDK setup notice ------------------------------------ */}
-          {apiError && (
-            <motion.div
-              initial="hidden"
-              animate="visible"
-              variants={revealVariants(reduced, 10)}
-              className="mb-5 p-4 md:p-5"
-              style={{
-                background: 'rgba(210, 166, 79, 0.10)',
-                border: '1px solid rgba(210, 166, 79, 0.4)',
-                borderRadius: 'var(--r-lg)',
-              }}
-            >
-              <div className="flex items-start gap-3">
-                <TriangleAlert
-                  className="mt-0.5 h-5 w-5 shrink-0"
-                  style={{ color: 'var(--gold-600)' }}
-                  aria-hidden="true"
-                />
-                <div className="min-w-0">
-                  <h2 className="text-sm font-bold" style={{ color: 'var(--text-strong)' }}>
-                    Firebase Admin SDK Setup Required
-                  </h2>
-                  <p className="mt-1 text-sm" style={{ color: 'var(--text-body)' }}>
-                    To access all Firebase Authentication users, you need to add your Firebase
-                    service account key.
-                  </p>
+        {/* User list */}
+        <div className="mt-3 overflow-hidden rounded-2xl border" style={{ borderColor: 'var(--hairline)', background: 'var(--surface-card)' }}>
+          {/* Header - desktop */}
+          <div className="hidden items-center gap-2 px-3 py-2.5 text-[11px] font-bold uppercase tracking-widest lg:grid" style={{ gridTemplateColumns: gridCols, background: 'var(--surface-sunken)', color: 'var(--text-muted)', borderBottom: '1px solid var(--hairline)' }}>
+            <div>User</div>
+            <div>Role</div>
+            <div>Auth</div>
+            <div>Status</div>
+            <div>Created</div>
+            <div>Last Sign-in</div>
+            <div className="text-right">Actions</div>
+          </div>
 
+          {/* Rows */}
+          <div className="divide-y" style={{ borderColor: 'var(--hairline)' }}>
+            {displayedUsers.length === 0 ? (
+              <div className="px-6 py-12 text-center">
+                <Users className="mx-auto h-8 w-8" style={{ color: 'var(--text-subtle)' }} />
+                <p className="mt-2 text-sm font-semibold" style={{ color: 'var(--text-body)' }}>{searchQuery ? 'No users found' : 'No users'}</p>
+              </div>
+            ) : (
+              displayedUsers.map((user) => {
+                const cfg = configFor(user.role);
+                const RoleIcon = cfg.icon;
+                const isCurrent = user.uid === currentUser?.uid;
+                return (
                   <div
-                    className="mt-3 p-3"
-                    style={{
-                      background: 'var(--surface-card)',
-                      border: '1px solid var(--hairline)',
-                      borderRadius: 'var(--r-md)',
-                    }}
-                  >
-                    <p className="label-caps mb-2">How to get your service account key</p>
-                    <ol
-                      className="list-inside list-decimal space-y-1 text-sm"
-                      style={{ color: 'var(--text-body)' }}
-                    >
-                      <li>Go to Firebase Console &gt; Project Settings &gt; Service Accounts</li>
-                      <li>Click &quot;Generate new private key&quot;</li>
-                      <li>Download the JSON file</li>
-                      <li>Copy the entire JSON content</li>
-                      <li>
-                        Add it as a secret named{' '}
-                        <code
-                          className="rounded px-1.5 py-0.5 text-xs"
-                          style={{ background: 'var(--surface-sunken)', color: 'var(--text-strong)' }}
-                        >
-                          FIREBASE_SERVICE_ACCOUNT_KEY
-                        </code>
-                      </li>
-                    </ol>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          )}
-
-          {/* ---- Role filter ------------------------------------------------ */}
-          <section aria-label="Filter by role" className="mb-4">
-            <p className="label-caps mb-2">Roles</p>
-            <div className="scroll-x -mx-1 px-1 pb-1">
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  aria-pressed={activeTab === 'all'}
-                  onClick={() => setActiveTab('all')}
-                  className={`flex shrink-0 items-center gap-2 whitespace-nowrap rounded-[var(--r-md)] border px-3 text-sm font-semibold transition-colors ${
-                    activeTab === 'all'
-                      ? 'bg-ink-900 text-white border-ink-900'
-                      : 'bg-ink-100 text-ink-700 border-ink-200 hover:border-ink-300 dark:bg-ink-800 dark:text-ink-200 dark:border-ink-700'
-                  }`}
-                  style={{ minHeight: 44 }}
-                >
-                  <Users className="h-4 w-4" aria-hidden="true" />
-                  All Users
-                  <span className="tabular text-xs font-bold opacity-75">{mergedUsers.length}</span>
-                </button>
-
-                {roleOptions.map(role => {
-                  const config = configFor(role);
-                  const RoleIcon = config.icon;
-                  const isActive = activeTab === role;
-                  return (
-                    <button
-                      key={role}
-                      type="button"
-                      aria-pressed={isActive}
-                      onClick={() => setActiveTab(role)}
-                      className={`flex shrink-0 items-center gap-2 whitespace-nowrap rounded-[var(--r-md)] border px-3 text-sm font-semibold transition-colors ${
-                        isActive ? config.solid : config.idle
-                      }`}
-                      style={{ minHeight: 44 }}
-                    >
-                      <RoleIcon className="h-4 w-4" aria-hidden="true" />
-                      {config.label}
-                      <span className="tabular text-xs font-bold opacity-75">
-                        {(usersByRole[role] || []).length}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </section>
-
-          {/* ---- Search ------------------------------------------------------ */}
-          <div className="mb-5 max-w-md">
-            <label htmlFor="user-search" className="sr-only">
-              Search by name, email, or UID
-            </label>
-            <div className="relative">
-              <Search
-                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2"
-                style={{ color: 'var(--text-subtle)' }}
-                aria-hidden="true"
-              />
-              <input
-                id="user-search"
-                type="text"
-                placeholder="Search by name, email, or UID..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="input-premium pl-10 text-sm"
-              />
-            </div>
-          </div>
-
-          {/* ---- Register ---------------------------------------------------- */}
-          <div
-            className="mb-3 flex items-baseline justify-between gap-3 border-b pb-2"
-            style={{ borderColor: 'var(--hairline)' }}
-          >
-            <h2 className="text-sm font-bold" style={{ color: 'var(--text-strong)' }}>
-              {activeTab === 'all'
-                ? 'All Users'
-                : `${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}s`}
-            </h2>
-            <span className="tabular text-xs font-semibold" style={{ color: 'var(--text-muted)' }}>
-              {displayedUsers.length} shown
-            </span>
-          </div>
-
-          <div className="space-y-2">
-            <AnimatePresence mode="popLayout">
-              {displayedUsers.length === 0 ? (
-                <motion.div
-                  key="empty"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: reduced ? 0.001 : 0.28 }}
-                  className="flex flex-col items-center gap-3 px-6 py-14 text-center"
-                  style={{
-                    background: 'var(--surface-card)',
-                    border: '1px solid var(--hairline)',
-                    borderRadius: 'var(--r-lg)',
-                  }}
-                >
-                  <EmptyIcon
-                    className="h-8 w-8"
-                    strokeWidth={1.6}
-                    style={{ color: 'var(--text-subtle)' }}
-                    aria-hidden="true"
-                  />
-                  <p className="text-sm font-semibold" style={{ color: 'var(--text-body)' }}>
-                    {searchQuery
-                      ? 'No users found matching your search'
-                      : apiError
-                        ? 'Configure Firebase Admin SDK to see users'
-                        : `No ${activeTab === 'all' ? 'users' : activeTab + 's'} found`}
-                  </p>
-                </motion.div>
-              ) : (
-                displayedUsers.map((user, index) => (
-                  <UserRoleCard
                     key={user.uid}
-                    user={user}
-                    role={user.role}
-                    onEditRole={() => startEditingRole(user)}
-                    onResetPassword={() => handleResetPassword(user)}
-                    onDisable={() => setActionModal({ type: 'disable', user })}
-                    onEnable={() => handleDisableUser(user, false)}
-                    onDelete={() => setActionModal({ type: 'delete', user })}
-                    isCurrentUser={user.uid === currentUser?.uid}
-                    index={index}
-                  />
-                ))
-              )}
-            </AnimatePresence>
+                    className="grid items-center gap-2 px-3 py-2.5 transition-colors duration-200 hover:bg-[var(--surface-sunken)]/60 lg:gap-2"
+                    style={{ gridTemplateColumns: `repeat(1, minmax(0, 1fr))`, minHeight: '78px' }}
+                  >
+                    {/* Mobile card */}
+                    <div className="lg:hidden">
+                      <div className="flex items-start gap-3">
+                        <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full" style={{ background: 'var(--surface-sunken)', border: '1px solid var(--hairline)' }}>
+                          {user.photoURL ? <img src={user.photoURL} alt="" className="h-9 w-9 rounded-full object-cover" /> : <RoleIcon className="h-4 w-4" style={{ color: 'var(--text-muted)' }} />}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-semibold" style={{ color: 'var(--text-strong)' }}>{user.displayName || 'No name'} {isCurrent && <span className="ml-1 rounded-full px-1.5 py-0.5 text-[10px] font-bold" style={{ background: 'var(--ember-600)', color: '#fff' }}>You</span>}</p>
+                          <p className="truncate text-xs" style={{ color: 'var(--text-muted)' }}>{user.email || '—'}</p>
+                          <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                            <span className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold" style={{ background: 'var(--surface-card)', borderColor: 'var(--hairline)', color: 'var(--text-body)' }}><RoleIcon className="h-3 w-3" />{cfg.label}</span>
+                            <span className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px]" style={{ background: 'var(--surface-sunken)', borderColor: 'var(--hairline)', color: 'var(--text-muted)' }}>{getProviderName(user.providers)}</span>
+                            {user.emailVerified ? <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ background: 'rgba(44,122,83,0.12)', color: 'var(--leaf-600)' }}><CircleCheck className="h-3 w-3" />Verified</span> : <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ background: 'rgba(210,166,79,0.15)', color: 'var(--gold-600)' }}><CircleX className="h-3 w-3" />Not Verified</span>}
+                          </div>
+                          <p className="mt-1 flex items-center gap-1 text-xs" style={{ color: 'var(--text-subtle)' }}><Calendar className="h-3 w-3" />{formatDate(user.creationTime)} <Clock className="ml-2 h-3 w-3" />{user.lastSignInTime ? formatDate(user.lastSignInTime) : 'Never'}</p>
+                          <div className="mt-2 flex flex-wrap gap-1.5">
+                            <button type="button" onClick={() => { const u = displayedUsers.find(x=>x.uid===user.uid); if(u) { setEditingUser(u); setNewRole(roles[u.uid]||'customer'); } }} className="inline-flex h-7 items-center gap-1 rounded-full border px-2.5 text-xs font-semibold" style={{ borderColor: 'var(--hairline)', background: 'var(--surface-card)', color: 'var(--text-body)' }}><Pencil className="h-3 w-3" />Change Role</button>
+                            {user.providers?.includes('password') && <button type="button" onClick={() => handleResetPassword(user)} className="inline-flex h-7 items-center gap-1 rounded-full border px-2.5 text-xs font-semibold" style={{ borderColor: 'var(--hairline)', background: 'var(--surface-card)' }}><Key className="h-3 w-3" />Reset</button>}
+                            {!isCurrent && (user.disabled ? <button type="button" onClick={() => handleDisableUser(user,false)} className="inline-flex h-7 items-center gap-1 rounded-full border px-2.5 text-xs font-semibold" style={{ color: 'var(--leaf-600)', borderColor: 'var(--hairline)' }}><Check className="h-3 w-3" />Enable</button> : <button type="button" onClick={() => setActionModal({type:'disable',user})} className="inline-flex h-7 items-center gap-1 rounded-full border px-2.5 text-xs font-semibold" style={{ color: 'var(--gold-600)', borderColor: 'var(--hairline)' }}><Ban className="h-3 w-3" />Disable</button>)}
+                            {!isCurrent && <button type="button" onClick={() => setActionModal({type:'delete',user})} className="inline-flex h-7 items-center gap-1 rounded-full border px-2.5 text-xs font-semibold" style={{ color: 'var(--crimson-600)', borderColor: 'rgba(203,42,42,0.3)', background: 'rgba(203,42,42,0.08)' }}><Trash2 className="h-3 w-3" />Delete</button>}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Desktop grid */}
+                    <div className="hidden lg:grid lg:items-center lg:gap-2" style={{ gridTemplateColumns: gridCols }}>
+                      <div className="flex min-w-0 items-center gap-2.5">
+                        <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full" style={{ background: 'var(--surface-sunken)', border: '1px solid var(--hairline)' }}>
+                          {user.photoURL ? <img src={user.photoURL} alt="" className="h-8 w-8 rounded-full object-cover" /> : <RoleIcon className="h-4 w-4" style={{ color: 'var(--text-muted)' }} />}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold leading-tight" style={{ color: 'var(--text-strong)' }}>{user.displayName || 'No name'} {isCurrent && <span className="ml-1 rounded-full px-1 py-0.5 text-[10px] font-bold align-middle" style={{ background: 'var(--ember-600)', color: '#fff' }}>You</span>}</p>
+                          <p className="truncate text-xs leading-tight" style={{ color: 'var(--text-muted)' }}>{user.email || '—'}</p>
+                        </div>
+                      </div>
+                      <div>
+                        <span className="inline-flex items-center gap-1 rounded-full border px-2 py-1 text-xs font-semibold" style={{ background: 'var(--surface-sunken)', borderColor: 'var(--hairline)', color: 'var(--text-body)' }}><RoleIcon className="h-3 w-3" />{cfg.label}</span>
+                      </div>
+                      <div className="tabular text-xs" style={{ color: 'var(--text-muted)' }}>{getProviderName(user.providers)}</div>
+                      <div>
+                        {user.emailVerified ? <span className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold" style={{ background: 'rgba(44,122,83,0.12)', color: 'var(--leaf-600)' }}><CircleCheck className="h-3 w-3" />Verified</span> : <span className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold" style={{ background: 'rgba(210,166,79,0.15)', color: 'var(--gold-600)' }}><CircleX className="h-3 w-3" />Not Verified</span>}
+                      </div>
+                      <div className="tabular text-xs" style={{ color: 'var(--text-muted)' }}>{formatDate(user.creationTime)}</div>
+                      <div className="tabular text-xs" style={{ color: 'var(--text-muted)' }}>{user.lastSignInTime ? formatDate(user.lastSignInTime) : 'Never'}</div>
+                      <div className="flex flex-nowrap items-center justify-end gap-1.5 whitespace-nowrap" style={{ whiteSpace: 'nowrap' }}>
+                        <button type="button" onClick={() => { setEditingUser(user); setNewRole(roles[user.uid]||'customer'); }} className="inline-flex h-8 items-center gap-1 whitespace-nowrap rounded-full border px-2.5 text-xs font-semibold" style={{ borderColor: 'var(--hairline)', background: 'var(--surface-card)', color: 'var(--text-body)' }}><Pencil className="h-3 w-3" />Change</button>
+                        {user.providers?.includes('password') && <button type="button" onClick={() => handleResetPassword(user)} className="inline-flex h-8 items-center gap-1 whitespace-nowrap rounded-full border px-2.5 text-xs font-semibold" style={{ borderColor: 'var(--hairline)', background: 'var(--surface-card)' }}><Key className="h-3 w-3" />Reset</button>}
+                        {!isCurrent && (user.disabled ? <button type="button" onClick={() => handleDisableUser(user,false)} className="inline-flex h-8 items-center gap-1 whitespace-nowrap rounded-full border px-2.5 text-xs font-semibold" style={{ color: 'var(--leaf-600)', border: '1px solid var(--hairline)', background: 'var(--surface-card)' }}><Check className="h-3 w-3" />Enable</button> : <button type="button" onClick={() => setActionModal({type:'disable',user})} className="inline-flex h-8 items-center gap-1 whitespace-nowrap rounded-full border px-2.5 text-xs font-semibold" style={{ color: 'var(--gold-600)', border: '1px solid var(--hairline)', background: 'var(--surface-card)' }}><Ban className="h-3 w-3" />Disable</button>)}
+                        {!isCurrent && <button type="button" onClick={() => setActionModal({type:'delete',user})} className="inline-flex h-8 items-center justify-center whitespace-nowrap rounded-full border px-2.5 text-xs font-semibold" style={{ color: 'var(--crimson-600)', borderColor: 'rgba(203,42,42,0.3)', background: 'rgba(203,42,42,0.08)' }}><Trash2 className="h-3.5 w-3.5" /></button>}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
-      </motion.div>
+      </div>
 
       <RoleEditorModal
         user={editingUser}

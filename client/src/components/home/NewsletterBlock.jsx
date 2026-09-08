@@ -3,11 +3,12 @@ import { CornerFiligree } from '../ui/Ornaments';
 
 /**
  * Newsletter sign-up. The submit handler and its validation live in Home.jsx
- * and are passed in untouched.
+ * and are passed in untouched. `copy` ({ heading, description, buttonText })
+ * overrides the default editorial copy — used by the homepage canvas.
  */
-const NewsletterBlock = ({ email, onEmailChange, onSubmit }) => (
+const NewsletterBlock = ({ email, onEmailChange, onSubmit, copy }) => (
   <div
-    className="relative flex h-full flex-col overflow-hidden p-6 md:p-8"
+    className="relative flex h-full flex-col overflow-hidden p-5 sm:p-6 md:p-8"
     style={{
       background: 'var(--grad-maroon)',
       borderRadius: 'var(--r-2xl)',
@@ -35,14 +36,14 @@ const NewsletterBlock = ({ email, onEmailChange, onSubmit }) => (
       </span>
 
       <h2 className="section-title mt-4" style={{ color: 'var(--white-soft)' }}>
-        Stay Updated with Festival Offers
+        {copy?.heading || 'Stay Updated with Festival Offers'}
       </h2>
 
       <p
         className="mt-3 max-w-prose text-pretty"
         style={{ fontFamily: 'var(--font-body)', color: 'var(--text-on-dark)', lineHeight: 1.65 }}
       >
-        Get exclusive deals, early sale access and festive surprises straight to your inbox.
+        {copy?.description || 'Get exclusive deals, early sale access and festive surprises straight to your inbox.'}
       </p>
 
       <form onSubmit={onSubmit} className="mt-auto flex flex-col gap-3 pt-6 sm:flex-row">
@@ -69,7 +70,7 @@ const NewsletterBlock = ({ email, onEmailChange, onSubmit }) => (
 
         <button type="submit" className="btn-gold shrink-0 px-7 py-3.5">
           <Send className="h-5 w-5" strokeWidth={2.3} aria-hidden="true" />
-          Subscribe
+          {copy?.buttonText || 'Subscribe'}
         </button>
       </form>
     </div>

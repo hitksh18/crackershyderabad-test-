@@ -43,8 +43,9 @@ const WhatsAppButton = () => {
       target="_blank"
       rel="noopener noreferrer"
       aria-label="Chat with us on WhatsApp"
-      className="group fixed bottom-6 right-6 z-overlay flex h-14 w-14 items-center justify-center rounded-full text-white"
+      className="group fixed right-4 z-overlay flex h-14 w-14 items-center justify-center rounded-full text-white sm:right-6"
       style={{
+        bottom: 'max(1rem, env(safe-area-inset-bottom))',
         background: 'linear-gradient(140deg, #3E9A6B 0%, #2C7A53 54%, #245F42 100%)',
         border: '1px solid rgba(210, 166, 79, 0.42)',
         boxShadow: '0 14px 34px rgba(36, 95, 66, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.22)'

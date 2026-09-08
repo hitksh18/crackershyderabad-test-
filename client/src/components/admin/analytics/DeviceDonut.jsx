@@ -71,7 +71,7 @@ export default function DeviceDonut({ devices }) {
               {total.toLocaleString('en-IN')}
             </p>
             <p className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
-              views
+              total views
             </p>
           </div>
         </div>

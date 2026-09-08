@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { collection, getDocs, getDoc, doc, updateDoc, deleteDoc, writeBatch, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Eye, FileText, StickyNote, Trash2 } from 'lucide-react';
+import { ArrowLeft, Eye, FileText, StickyNote, Trash2, Search, ChevronDown } from 'lucide-react';
 import toast from '../utils/toast';
 import { sendOrderSMS } from '../utils/sms';
 import CustomModal from '../components/CustomModal';
@@ -29,17 +29,15 @@ const FilterTab = ({ active, onClick, label, count }) => (
     type="button"
     onClick={onClick}
     aria-pressed={active}
-    className={`flex min-h-[44px] w-full items-center justify-center gap-2 whitespace-nowrap rounded-[var(--r-sm)] px-3 text-sm font-semibold transition-[background-color,color,box-shadow] duration-150 sm:w-auto sm:px-5 ${
-      active ? 'shadow-[var(--shadow-xs)]' : ''
-    }`}
+    className={`flex min-h-[36px] items-center justify-center gap-2 whitespace-nowrap rounded-full px-4 text-xs font-semibold transition-colors duration-200 ${active ? 'shadow-sm' : ''}`}
     style={
       active
-        ? { background: 'var(--surface-card)', color: 'var(--text-strong)', border: '1px solid var(--hairline-strong)' }
+        ? { background: 'var(--surface-card)', color: 'var(--text-strong)', border: '1px solid var(--hairline-strong)', boxShadow: 'var(--shadow-xs)' }
         : { background: 'transparent', color: 'var(--text-muted)', border: '1px solid transparent' }
     }
   >
     {label}
-    <span className={`badge ${active ? 'badge-ember' : 'badge-neutral'} tabular`}>{count}</span>
+    <span className={`tabular rounded-full px-2 py-0.5 text-[11px] ${active ? '' : ''}`} style={active ? { background: 'var(--ember-600)', color: '#fff' } : { background: 'var(--surface-sunken)', color: 'var(--text-muted)', border: '1px solid var(--hairline)' }}>{count}</span>
   </button>
 );
 
@@ -47,6 +45,9 @@ const Orders = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('online');
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('All');
+  const [dateFilter, setDateFilter] = useState('All');
   const { isOpen, modalConfig, openModal, closeModal, handleConfirm } = useModal();
   const { isAdmin, isMod } = useAuth();
   const { isDark } = useTheme();
@@ -216,8 +217,6 @@ const Orders = () => {
 
       const order = orders.find(o => o.id === orderId);
       if (order?.customer?.phone) {
-        // The server reads the recipient and the new status straight from the
-        // order document, so only its id is needed here.
         sendOrderSMS({ orderId, type: 'status' });
       }
 
@@ -262,7 +261,6 @@ const Orders = () => {
         const loadingToast = toast.loading(`Deleting ${orders.length} orders...`);
 
         try {
-          // Use batch writes for better performance (max 500 per batch)
           const batchSize = 500;
           const orderIds = orders.map(order => order.id);
 
@@ -369,7 +367,27 @@ const Orders = () => {
     }
   };
 
-  const visibleOrders = activeTab === 'online' ? onlineOrders : storeOrders;
+  const visibleOrdersBase = activeTab === 'online' ? onlineOrders : storeOrders;
+
+  const filteredVisibleOrders = useMemo(() => {
+    return visibleOrdersBase.filter(order => {
+      const q = search.trim().toLowerCase();
+      const matchesSearch = !q || String(order.shortCode || order.id).toLowerCase().includes(q) || (order.customer?.name || '').toLowerCase().includes(q) || (order.customer?.phone || '').includes(q);
+      const matchesStatus = statusFilter === 'All' || (order.status || 'Pending') === statusFilter;
+      let matchesDate = true;
+      if (dateFilter !== 'All') {
+        const d = order.createdAt?.toDate ? order.createdAt.toDate() : new Date(order.createdAt);
+        const now = new Date();
+        if (dateFilter === 'Today') matchesDate = d.toDateString() === now.toDateString();
+        if (dateFilter === 'This week') {
+          const weekAgo = new Date(now); weekAgo.setDate(now.getDate() - 7);
+          matchesDate = d >= weekAgo;
+        }
+        if (dateFilter === 'This month') matchesDate = d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      }
+      return matchesSearch && matchesStatus && matchesDate;
+    });
+  }, [visibleOrdersBase, search, statusFilter, dateFilter]);
 
   const renderActions = (order, labelled) => (
     <OrderActionBar
@@ -396,15 +414,15 @@ const Orders = () => {
     const ToneIcon = tone.Icon;
 
     return (
-      <div className="flex items-center gap-2">
-        <ToneIcon className="h-4 w-4 shrink-0" aria-hidden="true" style={{ color: tone.dot }} strokeWidth={2.2} />
+      <div className="flex items-center gap-1.5">
+        <ToneIcon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" style={{ color: tone.dot }} strokeWidth={2.2} />
         <select
           value={order.status}
           onChange={(e) => handleStatusChange(order.id, e.target.value)}
           aria-label={`Order status for order ${orderCodeOf(order)}`}
-          className="min-h-[44px] w-full min-w-[9.5rem] rounded-[var(--r-sm)] border px-2 text-sm font-semibold"
+          className="min-h-[32px] w-full min-w-0 rounded-full border px-2.5 text-xs font-semibold"
           style={{
-            borderColor: 'var(--hairline-strong)',
+            borderColor: 'var(--hairline)',
             background: 'var(--surface-card)',
             color: 'var(--text-strong)',
             colorScheme: isDark ? 'dark' : 'light',
@@ -418,31 +436,25 @@ const Orders = () => {
     );
   };
 
-  /* Full order detail lives on its own page; the register links to it. */
   const renderViewLink = (order) => (
     <Link
       to={`/admin/orders/${order.id}`}
       aria-label={`View full details for order ${orderCodeOf(order)}`}
-      className="inline-flex min-h-[44px] items-center gap-1.5 rounded-[var(--r-sm)] border border-[var(--hairline)] bg-[var(--surface-card)] px-3 text-xs font-semibold transition-[border-color] duration-150 hover:border-[var(--hairline-strong)]"
-      style={{ color: 'var(--text-body)' }}
+      className="inline-flex h-7 items-center gap-1 rounded-full border px-2.5 text-xs font-semibold transition-colors duration-200"
+      style={{ borderColor: 'var(--hairline)', background: 'var(--surface-card)', color: 'var(--text-body)' }}
     >
-      <Eye className="h-4 w-4" aria-hidden="true" strokeWidth={2.2} />
+      <Eye className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2.2} />
       View
     </Link>
   );
 
   if (loading) {
     return (
-      <div className="min-h-screen">
-        <div className="shell section-pad-sm">
-          <div className="mb-8 space-y-3">
-            <Skeleton className="h-3 w-28" />
-            <Skeleton className="h-10 w-80" />
-          </div>
-          <div
-            className="rounded-[var(--r-lg)] border p-5"
-            style={{ borderColor: 'var(--hairline)', background: 'var(--surface-card)' }}
-          >
+      <div className="min-h-screen bg-[var(--surface-page)]">
+        <div className="mx-auto w-full max-w-[1550px] px-4 py-4 lg:px-8">
+          <Skeleton className="h-3 w-28" />
+          <Skeleton className="mt-2 h-6 w-64" />
+          <div className="mt-3 rounded-2xl border p-5" style={{ borderColor: 'var(--hairline)', background: 'var(--surface-card)' }}>
             <TableSkeleton rows={7} cols={5} label="Loading orders" />
           </div>
         </div>
@@ -450,8 +462,10 @@ const Orders = () => {
     );
   }
 
+  const gridCols = '0.85fr 1.4fr 0.55fr 0.7fr 0.95fr 0.85fr 1.55fr';
+
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-[var(--surface-page)] text-[var(--text-body)] transition-colors duration-200 overflow-x-hidden">
       <CustomModal
         isOpen={isOpen}
         onClose={closeModal}
@@ -459,185 +473,237 @@ const Orders = () => {
         {...modalConfig}
       />
 
+      {/* Dedicated Orders Navbar - ONE navbar: Back, Search, Centered Title, Status, Date, Delete */}
+      <header className="sticky top-0 z-30 flex min-h-[60px] w-full shrink-0 items-center border-b bg-[var(--surface-card)] px-4 py-2 transition-colors duration-200 lg:px-8" style={{ borderColor: 'var(--hairline)' }}>
+        <div className="mx-auto flex w-full max-w-[1550px] flex-wrap items-center gap-3 lg:flex-nowrap lg:gap-4">
+          <Link
+            to="/admin/dashboard"
+            className="inline-flex shrink-0 items-center gap-1.5 text-xs font-semibold transition-colors duration-200"
+            style={{ color: 'var(--ember-600)' }}
+          >
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+            <span className="hidden sm:inline">Back to Dashboard</span>
+            <span className="sm:hidden">Back</span>
+          </Link>
+
+          <div className="relative w-full sm:w-[300px] shrink lg:w-[320px] xl:w-[360px]">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" style={{ color: 'var(--text-subtle)' }} />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search orders... (order #, customer, phone)"
+              className="h-9 w-full rounded-full border bg-[var(--surface-sunken)] pl-10 pr-4 text-sm placeholder:text-[var(--text-subtle)] focus:outline-none transition-colors duration-200"
+              style={{ borderColor: 'var(--hairline)', color: 'var(--text-strong)' }}
+            />
+          </div>
+
+          <h1 className="pointer-events-none absolute left-1/2 hidden -translate-x-1/2 text-sm font-bold tracking-tight lg:block" style={{ color: 'var(--text-strong)', fontFamily: 'var(--font-display)' }}>
+            Orders Management
+          </h1>
+
+          <div className="ml-auto flex items-center gap-2">
+            <div className="relative">
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="h-9 appearance-none rounded-full border bg-[var(--surface-sunken)] pl-3 pr-8 text-xs font-semibold focus:outline-none transition-colors duration-200"
+                style={{ borderColor: 'var(--hairline)', color: 'var(--text-body)' }}
+              >
+                <option value="All">Status: All</option>
+                {statusOptions.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2" style={{ color: 'var(--text-subtle)' }} />
+            </div>
+
+            <div className="relative">
+              <select
+                value={dateFilter}
+                onChange={(e) => setDateFilter(e.target.value)}
+                className="h-9 appearance-none rounded-full border bg-[var(--surface-sunken)] pl-3 pr-8 text-xs font-semibold focus:outline-none transition-colors duration-200"
+                style={{ borderColor: 'var(--hairline)', color: 'var(--text-body)' }}
+              >
+                <option value="All">Date: All dates</option>
+                <option value="Today">Today</option>
+                <option value="This week">This week</option>
+                <option value="This month">This month</option>
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2" style={{ color: 'var(--text-subtle)' }} />
+            </div>
+
+            {orders.length > 0 && (
+              <button
+                type="button"
+                onClick={handleDeleteAllOrders}
+                className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-full border px-3 text-xs font-semibold transition-colors duration-200"
+                style={{
+                  borderColor: 'rgba(203, 42, 42, 0.35)',
+                  background: 'rgba(203, 42, 42, 0.08)',
+                  color: 'var(--text-strong)',
+                }}
+              >
+                <Trash2 className="h-4 w-4" aria-hidden="true" style={{ color: '#E14848' }} />
+                <span className="hidden sm:inline">Delete All Orders ({orders.length})</span>
+                <span className="sm:hidden">Delete All</span>
+              </button>
+            )}
+          </div>
+        </div>
+      </header>
+
       <motion.div
         variants={pageVariants(reduced)}
         initial="initial"
         animate="animate"
-        className="shell section-pad-sm"
+        className="mx-auto w-full max-w-[1550px] px-4 py-3 lg:px-8"
       >
-        <Link
-          to="/admin/dashboard"
-          className="inline-flex min-h-[44px] items-center gap-2 text-sm font-semibold"
-          style={{ color: 'var(--ember-600)' }}
-        >
-          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-          Back to Dashboard
-        </Link>
-
-        <header className="mb-6 mt-3 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div className="min-w-0">
-            <span className="label-caps">Operations</span>
-            <h1 className="section-title mt-1.5">Orders Management</h1>
-            <p className="tabular mt-1.5 text-sm" style={{ color: 'var(--text-muted)' }}>
-              {orders.length} orders on record
-            </p>
-          </div>
-
-          {orders.length > 0 && (
-            <button
-              type="button"
-              onClick={handleDeleteAllOrders}
-              className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-[var(--r-md)] border px-4 text-sm font-semibold transition-[background-color,transform] duration-150 active:scale-[0.98]"
-              style={{
-                borderColor: 'rgba(203, 42, 42, 0.38)',
-                background: 'rgba(203, 42, 42, 0.10)',
-                color: 'var(--text-strong)',
-              }}
-            >
-              <Trash2 className="h-4 w-4" aria-hidden="true" style={{ color: '#E14848' }} />
-              Delete All Orders (<span className="tabular">{orders.length}</span>)
-            </button>
-          )}
-        </header>
-
-        <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div
-            role="group"
-            aria-label="Filter orders by channel"
-            className="flex w-full flex-col gap-1 rounded-[var(--r-md)] border p-1 sm:w-auto sm:flex-row"
-            style={{ borderColor: 'var(--hairline)', background: 'var(--surface-sunken)' }}
-          >
-            <FilterTab
-              active={activeTab === 'online'}
-              onClick={() => setActiveTab('online')}
-              label="Online Orders"
-              count={onlineOrders.length}
-            />
-            <FilterTab
-              active={activeTab === 'store'}
-              onClick={() => setActiveTab('store')}
-              label="Store Orders"
-              count={storeOrders.length}
-            />
-          </div>
-
-          <p className="tabular text-xs" style={{ color: 'var(--text-muted)' }} role="status" aria-live="polite">
-            Showing {visibleOrders.length} {activeTab === 'online' ? 'online' : 'store'} orders
-          </p>
+        {/* Tabs - only controls below navbar, compact */}
+        <div className="flex w-fit gap-1 rounded-full border p-1" style={{ borderColor: 'var(--hairline)', background: 'var(--surface-sunken)' }}>
+          <FilterTab
+            active={activeTab === 'online'}
+            onClick={() => setActiveTab('online')}
+            label="Online Orders"
+            count={onlineOrders.length}
+          />
+          <FilterTab
+            active={activeTab === 'store'}
+            onClick={() => setActiveTab('store')}
+            label="Store Orders"
+            count={storeOrders.length}
+          />
         </div>
 
         {orders.length === 0 ? (
-          <EmptyState
-            icon={FileText}
-            title="No orders found"
-            description="Orders placed online and orders created at the counter will both appear in this register."
-          />
-        ) : visibleOrders.length === 0 ? (
+          <div className="mt-3">
+            <EmptyState
+              icon={FileText}
+              title="No orders found"
+              description="Orders placed online and orders created at the counter will both appear in this register."
+            />
+          </div>
+        ) : filteredVisibleOrders.length === 0 ? (
           <div
-            className="flex flex-col items-center gap-2 rounded-[var(--r-lg)] border border-dashed py-14 text-center"
-            style={{ borderColor: 'var(--hairline-strong)' }}
+            className="mt-3 flex flex-col items-center gap-2 rounded-2xl border border-dashed py-10 text-center"
+            style={{ borderColor: 'var(--hairline-strong)', background: 'var(--surface-card)' }}
           >
             <FileText className="h-6 w-6" aria-hidden="true" style={{ color: 'var(--text-subtle)' }} />
             <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-              No {activeTab === 'online' ? 'online' : 'store'} orders yet
+              No matching {activeTab === 'online' ? 'online' : 'store'} orders
             </p>
           </div>
         ) : (
           <>
-            {/* Dense register — tablet and desktop */}
+            {/* Desktop table - grid aligned, full width, no clipping */}
             <div
-              className="hidden overflow-hidden rounded-[var(--r-lg)] border md:block"
+              className="mt-3 hidden overflow-hidden rounded-2xl border md:block transition-colors duration-200"
               style={{ borderColor: 'var(--hairline)', background: 'var(--surface-card)' }}
             >
-              <div className="scroll-x">
-                <table className="w-full min-w-[1040px] border-collapse text-left">
-                  <caption className="sr-only">
-                    {activeTab === 'online' ? 'Online orders register' : 'Store orders register'}
-                  </caption>
-                  <thead>
-                    <tr style={{ background: 'var(--surface-sunken)' }}>
-                      <th scope="col" className="w-20 px-3 py-3">
-                        <span className="sr-only">View order</span>
-                      </th>
-                      <th scope="col" className="label-caps px-3 py-3 text-left">Order</th>
-                      <th scope="col" className="label-caps px-3 py-3 text-left">Customer</th>
-                      <th scope="col" className="label-caps px-3 py-3 text-left">Items</th>
-                      <th scope="col" className="label-caps px-3 py-3 text-right">Total</th>
-                      <th scope="col" className="label-caps px-3 py-3 text-left">Status</th>
-                      <th scope="col" className="label-caps px-3 py-3 text-left">Placed</th>
-                      <th scope="col" className="label-caps px-3 py-3 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {visibleOrders.map((order) => (
-                      <tr key={order.id} style={{ borderTop: '1px solid var(--hairline)' }}>
-                        <td className="px-3 py-3 align-middle">{renderViewLink(order)}</td>
+              {/* Header */}
+              <div
+                className="grid items-center gap-2 px-3 py-2.5 text-[11px] font-bold uppercase tracking-widest"
+                style={{ gridTemplateColumns: gridCols, background: 'var(--surface-sunken)', color: 'var(--text-muted)', borderBottom: '1px solid var(--hairline)' }}
+              >
+                <div>Order</div>
+                <div>Customer</div>
+                <div className="text-center">Items</div>
+                <div className="text-right">Total</div>
+                <div>Status</div>
+                <div>Placed</div>
+                <div className="text-right">Actions</div>
+              </div>
+              {/* Rows */}
+              <div className="divide-y" style={{ borderColor: 'var(--hairline)' }}>
+                {filteredVisibleOrders.map((order) => (
+                  <div
+                    key={order.id}
+                    className="grid items-center gap-2 px-3 py-2.5 transition-colors duration-200 hover:bg-[var(--surface-sunken)]/60"
+                    style={{ gridTemplateColumns: gridCols, minHeight: '62px' }}
+                  >
+                    {/* ORDER */}
+                    <div className="min-w-0">
+                      <p className="tabular text-sm font-bold leading-tight" style={{ color: 'var(--text-strong)' }}>
+                        #{orderCodeOf(order)}
+                      </p>
+                      {order.adminNote && (
+                        <span className="mt-1 inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[11px]" style={{ background: 'rgba(210,166,79,0.15)', color: 'var(--gold-600)', border: '1px solid rgba(210,166,79,0.3)' }}>
+                          <StickyNote className="h-3 w-3" /> Note
+                        </span>
+                      )}
+                      <div className="mt-1 md:hidden">{renderViewLink(order)}</div>
+                    </div>
 
-                        <td className="px-3 py-3 align-middle">
-                          <p className="tabular text-sm font-bold" style={{ color: 'var(--text-strong)' }}>
-                            #{orderCodeOf(order)}
-                          </p>
-                          {order.adminNote && (
-                            <span className="badge badge-gold mt-1">
-                              <StickyNote className="h-3 w-3" aria-hidden="true" strokeWidth={2.4} />
-                              Note
-                            </span>
-                          )}
-                        </td>
+                    {/* CUSTOMER */}
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold leading-tight" style={{ color: 'var(--text-strong)' }}>
+                        {order.customer?.name || 'N/A'}
+                      </p>
+                      <p className="tabular truncate text-xs leading-tight" style={{ color: 'var(--text-muted)' }}>
+                        {order.customer?.phone || '—'}
+                      </p>
+                    </div>
 
-                        <td className="px-3 py-3 align-middle">
-                          <p className="max-w-[14rem] truncate text-sm font-semibold" style={{ color: 'var(--text-strong)' }}>
-                            {order.customer?.name || 'N/A'}
-                          </p>
-                          <p className="tabular text-xs" style={{ color: 'var(--text-muted)' }}>
-                            {order.customer?.phone}
-                          </p>
-                        </td>
+                    {/* ITEMS */}
+                    <div className="tabular text-center text-sm" style={{ color: 'var(--text-body)' }}>
+                      {order.items?.length || 0}
+                    </div>
 
-                        <td className="tabular px-3 py-3 align-middle text-sm" style={{ color: 'var(--text-body)' }}>
-                          {order.items?.length || 0}
-                        </td>
+                    {/* TOTAL */}
+                    <div className="tabular text-right">
+                      <p className="text-sm font-bold leading-tight" style={{ color: 'var(--text-strong)' }}>
+                        ₹{(order.total || 0).toLocaleString('en-IN')}
+                      </p>
+                      {order.discount > 0 && (
+                        <span className="tabular text-xs font-semibold" style={{ color: '#3E9A6B' }}>
+                          -₹{order.discount}
+                        </span>
+                      )}
+                    </div>
 
-                        <td
-                          className="tabular px-3 py-3 text-right align-middle text-sm font-bold"
-                          style={{ color: 'var(--text-strong)' }}
+                    {/* STATUS */}
+                    <div className="min-w-0">
+                      <div className="w-full max-w-[150px]">{renderStatusControl(order)}</div>
+                    </div>
+
+                    {/* PLACED */}
+                    <div className="tabular text-xs leading-tight" style={{ color: 'var(--text-muted)' }}>
+                      {order.createdAt?.toDate ? (
+                        <>
+                          <div>{order.createdAt.toDate().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</div>
+                          <div>{order.createdAt.toDate().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</div>
+                        </>
+                      ) : (
+                        'N/A'
+                      )}
+                    </div>
+
+                    {/* ACTIONS */}
+                    <div className="flex justify-end">
+                      <div className="hidden lg:block">{renderActions(order, false)}</div>
+                      <div className="lg:hidden">
+                        <Link
+                          to={`/admin/orders/${order.id}`}
+                          className="inline-flex h-8 items-center gap-1 rounded-full border px-2.5 text-xs font-semibold"
+                          style={{ borderColor: 'var(--hairline)', background: 'var(--surface-card)', color: 'var(--text-body)' }}
                         >
-                          &#8377;{(order.total || 0).toLocaleString('en-IN')}
-                          {order.discount > 0 && (
-                            <span className="tabular block text-xs font-semibold" style={{ color: '#3E9A6B' }}>
-                              &minus;&#8377;{order.discount}
-                            </span>
-                          )}
-                        </td>
-
-                        <td className="px-3 py-3 align-middle">{renderStatusControl(order)}</td>
-
-                        <td
-                          className="tabular whitespace-nowrap px-3 py-3 align-middle text-xs"
-                          style={{ color: 'var(--text-muted)' }}
-                        >
-                          {order.createdAt?.toDate?.().toLocaleString() || 'N/A'}
-                        </td>
-
-                        <td className="px-3 py-3 align-middle">{renderActions(order, false)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                          <Eye className="h-3.5 w-3.5" /> View
+                        </Link>
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
 
-            {/* Card register — phones */}
+            {/* Mobile cards */}
             <motion.ul
               initial="hidden"
               animate="visible"
               variants={revealVariants(reduced, 12)}
-              className="space-y-3 md:hidden"
+              className="mt-4 space-y-3 md:hidden"
             >
-              {visibleOrders.map((order) => (
+              {filteredVisibleOrders.map((order) => (
                 <li
                   key={order.id}
-                  className="rounded-[var(--r-lg)] border p-4"
+                  className="rounded-2xl border p-4 transition-colors duration-200"
                   style={{ borderColor: 'var(--hairline)', background: 'var(--surface-card)' }}
                 >
                   <div className="flex items-start justify-between gap-3">
@@ -662,8 +728,8 @@ const Orders = () => {
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="tabular text-lg font-bold" style={{ color: 'var(--text-strong)' }}>
-                        &#8377;{(order.total || 0).toLocaleString('en-IN')}
+                      <p className="tabular text-base font-bold" style={{ color: 'var(--text-strong)' }}>
+                        ₹{(order.total || 0).toLocaleString('en-IN')}
                       </p>
                       <p className="tabular text-xs" style={{ color: 'var(--text-muted)' }}>
                         {order.items?.length || 0} items
@@ -672,15 +738,14 @@ const Orders = () => {
                   </div>
 
                   {order.adminNote && (
-                    <span className="badge badge-gold mt-3">
-                      <StickyNote className="h-3 w-3" aria-hidden="true" strokeWidth={2.4} />
-                      Internal note
+                    <span className="mt-3 inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs" style={{ background: 'rgba(210,166,79,0.15)', color: 'var(--gold-600)' }}>
+                      <StickyNote className="h-3 w-3" /> Internal note
                     </span>
                   )}
 
                   {activeTab === 'online' && <div className="mt-3">{renderStatusControl(order)}</div>}
 
-                  <div className="mt-3">{renderActions(order, true)}</div>
+                  <div className="mt-3 flex flex-wrap gap-2">{renderActions(order, true)}</div>
 
                   <div className="mt-3">
                     <Link

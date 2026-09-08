@@ -6,13 +6,13 @@ import toast from '../utils/toast';
 import { Search, Package, Printer, CircleCheck, CircleSlash, Layers } from 'lucide-react';
 import EmptyState from '../components/ui/EmptyState';
 import CategoryIcon from '../components/CategoryIconPack';
-import { slugForCategory } from '../lib/categoryIcons';
+import { slugForCategory, displayNameForCategory } from '../lib/categoryIcons';
 import { TableSkeleton } from '../components/ui/Skeleton';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { pageVariants, revealVariants } from '../lib/motion';
 import { fetchTradePricingMap, mergeTradePricing } from '../lib/tradePricing';
 
-const categories = ['All', 'Rockets', 'Sparkles', 'Ground Chakkars', 'Fancy Fireworks', 'Gift Boxes', 'Flower Pots', 'Bombs', 'Garlands', 'Kids Special', 'Guns, Rolls & Pop Pop', 'Threads and Novelties'];
+const categories = ['All', 'Rockets', 'Sparkles', 'Ground Chakkars', 'Sky Shots', 'Gift Boxes', 'Flower Pots', 'Bombs', 'Garlands', 'Kids Special', 'Guns, Rolls & Pop Pop', 'Threads and Novelties'];
 
 /** Same membership rule the list has always used — array form first, single field second. */
 const inCategory = (product, category) => {
@@ -57,7 +57,7 @@ const PriceRow = ({ product, showCategories }) => (
         <span className="flex flex-wrap gap-1">
           {(product.categories || [product.category]).map((cat, idx) => (
             <span key={idx} className="badge badge-neutral">
-              {cat}
+              {displayNameForCategory(cat)}
             </span>
           ))}
         </span>
@@ -338,7 +338,7 @@ const PriceList = () => {
                       <span className="h-5 w-5 shrink-0" aria-hidden="true">
                         <CategoryIcon category={slugForCategory(category)} />
                       </span>
-                      {category}
+                      {displayNameForCategory(category)}
                     </h2>
                     <span className="badge badge-neutral tabular">
                       {groupProducts.length} products

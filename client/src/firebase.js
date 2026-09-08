@@ -1,5 +1,9 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import {
+  getAuth,
+  setPersistence,
+  browserLocalPersistence,
+} from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
@@ -17,4 +21,11 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
+
+/* Pin local persistence explicitly. Firebase defaults to local for web, but
+   this makes the intent clear and survives any future SDK default changes.
+   .catch() swallows the (non-fatal) error that occurs if this runs during a
+   pending redirect — the session is already being handled elsewhere. */
+setPersistence(auth, browserLocalPersistence).catch(() => {});
+
 export default app;

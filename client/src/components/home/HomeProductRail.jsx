@@ -125,7 +125,16 @@ const HomeProductRail = ({
     const el = railRef.current;
     if (!el) return;
     pause();
-    el.scrollBy({ left: dir * el.clientWidth * 0.75, behavior: reduced ? 'auto' : 'smooth' });
+    // Move by exactly one card (card width + the gap between cards) so the
+    // arrow buttons step cleanly between complete cards instead of relying
+    // on the browser's native page scroll.
+    let step = el.clientWidth * 0.75;
+    const firstCard = el.querySelector('.rail-card');
+    if (firstCard) {
+      const gap = parseFloat(getComputedStyle(el).columnGap) || 16;
+      step = firstCard.offsetWidth + gap;
+    }
+    el.scrollBy({ left: dir * step, behavior: reduced ? 'auto' : 'smooth' });
     scheduleResume();
   };
 
@@ -167,7 +176,6 @@ const HomeProductRail = ({
         role="region"
         aria-label={railLabel}
         className="rail"
-        style={{ marginInline: 'calc(-1 * clamp(1.25rem, 5vw, 2.5rem))' }}
       >
         {loading ? (
           <>

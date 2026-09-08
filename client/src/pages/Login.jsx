@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Mail,
   Lock,
@@ -13,8 +13,9 @@ import {
   Truck,
 } from 'lucide-react';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { doc, setDoc } from 'firebase/firestore';
 import { useAuth } from '../context/AuthContext';
-import { auth } from '../firebase';
+import { auth, db } from '../firebase';
 import toast from '../utils/toast';
 import Seo from '../components/Seo';
 import { useReducedMotion } from '../hooks/useReducedMotion';
@@ -34,7 +35,11 @@ const AUTH_MESSAGES = {
   'auth/network-request-failed': 'We could not reach the server. Check your connection and try again.',
   'auth/email-already-in-use': 'Email already in use. Try logging in instead.',
   'auth/weak-password': 'Please choose a password with at least six characters.',
-  'auth/operation-not-allowed': 'This sign-in method is not enabled. Please use another option.',
+  'auth/operation-not-allowed': 'This sign-in method is not enabled. Use email and password, or ask the shop to enable it.',
+  'auth/admin-restricted-operation': 'This sign-in method is not enabled. Use email and password, or ask the shop to enable it.',
+  'auth/unauthorized-domain': 'This domain is not authorized for sign-in. Add it in Firebase Authentication settings and try again.',
+  'auth/account-exists-with-different-credential':
+    'An account already exists with this email. Sign in with email and password instead.',
   'auth/popup-closed-by-user': 'The Google sign-in window was closed before finishing.',
   'auth/cancelled-popup-request': 'The Google sign-in window was closed before finishing.',
   'auth/popup-blocked': 'Your browser blocked the Google sign-in window. Allow pop-ups and retry.',
@@ -49,17 +54,27 @@ const STORY_POINTS = [
   { icon: Truck, text: 'Follow every order from confirmation through to delivery' },
 ];
 
+/* The protected-route guard records the page a logged-out visitor was aiming
+   at, and the email flow hands it back via location.state. Google's redirect
+   round-trip reloads the page and drops that state, so the destination is
+   parked in sessionStorage before leaving and restored on the way back. */
+const FROM_KEY = 'auth_from';
+
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [formError, setFormError] = useState('');
   const [googleError, setGoogleError] = useState('');
-  const { loginWithEmail, loginWithGoogle } = useAuth();
+  const { loginWithEmail, loginWithGoogle, user, userRole, authReady } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const reduced = useReducedMotion();
+
+  const [from] = useState(() => location.state?.from || sessionStorage.getItem(FROM_KEY) || null);
 
   const getHomePath = (role) => {
     if (role === 'admin') return '/admin/dashboard';
@@ -68,19 +83,46 @@ const Login = () => {
     return '/';
   };
 
+  // Centralized redirect is now ONLY for auth restoration / Google redirect.
+  // Email login navigates directly in handleEmailLogin (OLD known-good path:
+  // result.role -> from||getHomePath). This effect must not duplicate it.
+  useEffect(() => {
+    if (loading) return;
+    if (location.pathname !== '/login') return;
+    if (authReady && user && userRole) {
+      const destination = from || getHomePath(userRole);
+      if (from) sessionStorage.removeItem(FROM_KEY);
+      navigate(destination, { replace: true });
+    }
+  }, [authReady, user, userRole, loading, navigate, from, location.pathname]);
+
   const handleEmailLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
     setFormError('');
     try {
       if (isSignUp) {
-        await createUserWithEmailAndPassword(auth, email, password);
-        toast.success('Account created successfully! You can now login.');
+        const created = await createUserWithEmailAndPassword(auth, email, password);
+        await setDoc(
+          doc(db, 'users', created.user.uid),
+          {
+            name: '',
+            email: created.user.email || '',
+            phone: '',
+            createdAt: new Date(),
+          },
+          { merge: true }
+        );
+        toast.success('Account created successfully! Signing you in...');
         setIsSignUp(false);
         setPassword('');
       } else {
         const result = await loginWithEmail(email, password);
-        navigate(getHomePath(result.role));
+        if (result?.role) {
+          const destination = from || getHomePath(result.role);
+          if (from) sessionStorage.removeItem(FROM_KEY);
+          navigate(destination, { replace: true });
+        }
       }
     } catch (error) {
       console.error(error);
@@ -101,18 +143,24 @@ const Login = () => {
   };
 
   const handleGoogleLogin = async () => {
-    setLoading(true);
     setGoogleError('');
+    setGoogleLoading(true);
     try {
+      if (from) sessionStorage.setItem(FROM_KEY, from);
       const result = await loginWithGoogle();
-      navigate(getHomePath(result.role));
+      if (result?.role) {
+        const destination = from || getHomePath(result.role);
+        if (from) sessionStorage.removeItem(FROM_KEY);
+        navigate(destination, { replace: true });
+      }
     } catch (error) {
+      if (from) sessionStorage.removeItem(FROM_KEY);
       console.error(error);
       setGoogleError(
         readableAuthError(error, 'Google sign-in did not complete. Please try again.')
       );
     } finally {
-      setLoading(false);
+      setGoogleLoading(false);
     }
   };
 
@@ -347,11 +395,21 @@ const Login = () => {
                 <button
                   type="button"
                   onClick={handleGoogleLogin}
-                  disabled={loading}
+                  disabled={loading || googleLoading}
+                  aria-busy={googleLoading}
                   className="btn-outline w-full"
                 >
-                  <GoogleMark />
-                  Login with Google
+                  {googleLoading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.2} aria-hidden="true" />
+                      Redirecting to Google...
+                    </>
+                  ) : (
+                    <>
+                      <GoogleMark />
+                      Login with Google
+                    </>
+                  )}
                 </button>
 
                 <p className="mt-7 text-center text-sm" style={{ color: 'var(--text-muted)' }}>

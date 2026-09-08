@@ -32,7 +32,7 @@ const DealsSection = ({ deals, heading }) => {
 
         <ScrollReveal
           stagger={0.05}
-          className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:gap-5 lg:grid-cols-4"
+          className="deals-grid grid grid-cols-1 gap-3.5 sm:grid-cols-2 sm:gap-4 md:gap-5 lg:grid-cols-4"
         >
           {deals.map((deal, index) => {
             const Icon = DEAL_ICON_OPTIONS[deal.icon] || Gift;

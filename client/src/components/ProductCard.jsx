@@ -18,7 +18,6 @@ import { inr } from '../lib/currency';
 import { productPath } from '../lib/productLinks';
 import toast from '../utils/toast';
 import ImagePlaceholder from './ImagePlaceholder';
-import ProductWatermark from './ProductWatermark';
 
 /**
  * Product card. With `compact` it is the full-width rail variant used by the
@@ -162,8 +161,6 @@ const ProductCard = ({ product, compact = false }) => {
           />
         </button>
 
-        {product.imageURL && <ProductWatermark />}
-
         {product.brand?.logo && (
           <div
             className={`pointer-events-none absolute left-2 z-raised flex items-center rounded-[var(--r-pill)] border shadow-sm ${
@@ -199,10 +196,6 @@ const ProductCard = ({ product, compact = false }) => {
 
       {/* ---------- Body ---------- */}
       <div className={`flex flex-grow flex-col ${compact ? 'p-3' : 'p-3.5 sm:p-4'}`}>
-        <span className="label-caps line-clamp-1" style={{ color: 'var(--ember-600)' }}>
-          {product.category}
-        </span>
-
         {/* min-h keeps the tap target at 44px even when the title is short
             enough to sit on a single line. */}
         <Link
@@ -250,12 +243,6 @@ const ProductCard = ({ product, compact = false }) => {
             <span className={`badge badge-leaf min-w-0 ${compact ? 'px-2 py-0.5 text-[10px]' : ''}`}>
               <PackageCheck className={`shrink-0 ${compact ? 'h-3 w-3' : 'hidden h-3.5 w-3.5 sm:inline-block'}`} strokeWidth={2.4} />
               In Stock
-            </span>
-          )}
-          {product.isFeatured && (
-            <span className={`badge badge-gold ${compact ? 'px-2 py-0.5 text-[10px]' : ''}`}>
-              <Star className={`shrink-0 ${compact ? 'h-2.5 w-2.5' : 'h-3 w-3'}`} fill="currentColor" strokeWidth={0} />
-              Featured
             </span>
           )}
         </div>

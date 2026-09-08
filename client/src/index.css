@@ -835,35 +835,31 @@ img {
     padding-bottom: var(--space-block);
   }
 
-  /* Page shell — one container width everywhere. */
+  /* Page shell — one consistent fluid container width everywhere.
+     Content fills ~90–92vw on large screens and scales with the viewport
+     instead of stopping at a narrow fixed 1280px cap. A generous 1800px
+     ceiling is kept only for readability on very wide monitors. */
   .shell {
-    width: 100%;
-    max-width: 80rem;
+    width: min(92vw, 1800px);
     margin-inline: auto;
     padding-inline: var(--gutter);
   }
 
+  /* Narrow pages (forms, account, single-column checkouts) share the same
+     fluid system but cap lower so forms stay comfortably readable and
+     centred. Still scales with the viewport rather than a rigid 896px box. */
   .shell-narrow {
-    width: 100%;
-    max-width: 56rem;
+    width: min(92vw, 1000px);
     margin-inline: auto;
     padding-inline: var(--gutter);
   }
 
-  /* Homepage shell — comfortable reading width capped near 1480px with
-      generous breathing room on large screens (40px each side), full width
-      with responsive padding on phones/tablets. */
+  /* Homepage shell — the same fluid width system as .shell, with slightly
+     more generous side padding so hero/feature sections breathe. */
   .shell-wide {
-    width: 100%;
-    max-width: 92.5rem;
+    width: min(92vw, 1800px);
     margin-inline: auto;
-    padding-inline: clamp(1.25rem, 5vw, 2.5rem);
-  }
-
-  @media (min-width: 1024px) {
-    .shell-wide {
-      width: calc(100% - 5rem);
-    }
+    padding-inline: clamp(1.25rem, 4vw, 2.5rem);
   }
 
   /* Horizontal scrollers must never leak past the shell. The native scrollbar
@@ -871,14 +867,21 @@ img {
      the rail still scrolls horizontally via the arrow buttons, drag, touch
      swipe and wheel. */
   .rail {
+    /* The gap used by the flex track. Cards are sized against this exact
+       value so N cards + (N-1) gaps always equal the viewport width —
+       the last complete card is never cut off by a gap/width mismatch. */
+    --rail-gap: clamp(1rem, 0.8rem + 0.6vw, 1.5rem);
     display: flex;
-    gap: clamp(1rem, 0.8rem + 0.6vw, 1.5rem);
+    gap: var(--rail-gap);
+    /* This element is the carousel viewport: it clips the wider track and
+       contains all horizontal overflow so the page itself never scrolls. */
     overflow-x: hidden;
     overflow-y: hidden;
     -webkit-overflow-scrolling: touch;
     padding-bottom: 0.5rem;
     scrollbar-width: none;
     -ms-overflow-style: none;
+    scroll-snap-type: x proximity;
     touch-action: pan-y;
     cursor: grab;
   }
@@ -887,31 +890,38 @@ img {
 
   .rail.is-dragging { cursor: grabbing; user-select: none; }
 
-  .rail > * { flex: 0 0 auto; }
+  /* Every card is a complete, independent element that snaps to the
+     viewport so a full card lands in view after arrow/drag navigation. */
+  .rail > * { flex: 0 0 auto; scroll-snap-align: start; }
 
-  /* Product card sizing for rails inside shell-wide (max 1480px):
-     2 cards on phones, 3 on small tablets, 4 on tablets,
-     5 on desktop, 6 on large screens. Card widths are calculated
-     so that N cards + (N-1) gaps fit within the rail width. */
+  /* Product card sizing inside a rail: 2 finely-tuned cards on phones
+     (intentional partial card on mobile only), 3 on small tablets,
+     4 on tablets, 5 on desktop, 6 on large screens. Widths are computed
+     against the viewport itself (100% = the overflow-hidden rail/container)
+     using the shared --rail-gap, so the row fits exactly and the final
+     visible card is always complete. */
   .rail-card {
     flex: 0 0 auto;
-    width: clamp(9.5rem, 44vw, 10.5rem);
+    scroll-snap-align: start;
+    /* Mobile (<640px): ~1.2 cards visible, the next card peeks in as an
+       intentional partial preview that is clipped by the viewport only. */
+    width: calc(84% - var(--rail-gap));
   }
 
   @media (min-width: 640px) {
-    .rail-card { width: calc((100% - 2rem) / 3); }
+    .rail-card { width: calc((100% - var(--rail-gap) * 2) / 3); }
   }
 
   @media (min-width: 1024px) {
-    .rail-card { width: calc((100% - 2.625rem) / 4); }
+    .rail-card { width: calc((100% - var(--rail-gap) * 3) / 4); }
   }
 
   @media (min-width: 1280px) {
-    .rail-card { width: calc((100% - 4rem) / 5); }
+    .rail-card { width: calc((100% - var(--rail-gap) * 4) / 5); }
   }
 
   @media (min-width: 1600px) {
-    .rail-card { width: calc((100% - 5rem) / 6); }
+    .rail-card { width: calc((100% - var(--rail-gap) * 5) / 6); }
   }
 
   /* Anything with runaway width (tables, wide charts) lives in one of these. */
@@ -1052,6 +1062,79 @@ img {
 
 .hero-zoom {
   animation: hero-zoom 8s var(--ease-out-soft) forwards;
+}
+
+/* =========================================================================
+   HERO — ASYMMETRIC SHOWCASE
+   The premium 1-large + 2-small storefront layout. Everything below is a
+   token-first building block; the section owns its dark field.
+   ========================================================================= */
+
+/* Carousel / card titles tuned for the compact banner boxes. */
+.hero-carousel-title {
+  font-family: var(--font-display);
+  font-size: clamp(1.75rem, 1.35rem + 2.6vw, 2.6rem);
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+  font-weight: 700;
+}
+
+.hero-card-title {
+  font-family: var(--font-display);
+  font-size: clamp(1.125rem, 0.95rem + 1.4vw, 1.625rem);
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  font-weight: 700;
+}
+
+/* Configurable label on banners and cards. */
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 0.4rem;
+  border-radius: var(--r-pill);
+  padding: 0.35rem 0.8rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #F7AE2C;
+  border: 1px solid rgba(210, 166, 79, 0.5);
+  background: rgba(26, 23, 20, 0.4);
+  backdrop-filter: blur(6px);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.28);
+}
+
+/* Small-card legibility scrim — text sits on the dark lower third. */
+.hero-card-scrim {
+  background: linear-gradient(
+    180deg,
+    rgba(10, 7, 7, 0.05) 34%,
+    rgba(10, 7, 7, 0.52) 60%,
+    rgba(10, 7, 7, 0.84) 100%
+  );
+}
+
+/* Auto-advance progress fill on the active carousel dot. */
+@keyframes hero-progress {
+  from { width: 0%; }
+  to { width: 100%; }
+}
+
+.hero-progress-fill {
+  animation-name: hero-progress;
+  animation-timing-function: linear;
+  animation-fill-mode: both;
+}
+
+/* Hide horizontal scrollbars on swipe/reel surfaces. */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }
 
 .animate-float { animation: float-y 6s var(--ease-out-soft) infinite; }
@@ -1204,7 +1287,7 @@ img {
 /* Category grid: 2-col mobile, 3-col desktop, final row centered */
 .category-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.75rem;
 }
 
@@ -1218,7 +1301,7 @@ img {
 /* Overflow row: 2-col grid on mobile, centered flex row on desktop */
 .category-grid-overflow {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.75rem;
   margin-top: 0.75rem;
 }
@@ -1700,6 +1783,913 @@ img {
 .dark .border-purple-500 { border-color: var(--ember-600); }
 .dark .ribbon { color: #FFFFFF; }
 .dark .btn-shine { color: inherit; }
+
+/* =========================================================================
+   CATALOGUE PAGE — compact single-search, one-line pills, toolbar
+
+   The pills row has two modes, split at the width where all 12 category
+   names actually fit on one line:
+
+     < 1360px  (phones, tablets, small desktops): a CONTAINED horizontal
+                scroller. Genuinely scrollable (nothing is clipped or
+                unreachable) and the page itself never moves.
+     ≥ 1360px  (desktop): one line, no scrollbar, no second row, all 12
+                pills visible. The row is measured, not guessed: trims of
+                padding/icon size are bought back as readable text, so the
+                most compact desktop (1366px) still gets 10.75px labels.
+
+   The page's own shell is a touch wider than the default 92vw (.shell)
+   because the 12 names are a fixed amount of text: at 92vw, the compact
+   sizes that fit have no room to spare, at 95vw they do. The header,
+   search bar and grid sit on the same inner edge.
+   ========================================================================= */
+
+/* ---- Products page shell: 95vw so the pill line fits with headroom ---- */
+.shell.products-page {
+  width: min(95vw, 1800px);
+  padding-inline: clamp(0.75rem, 1.5vw, 2rem);
+}
+
+/* ---- Category pills: shared-container row -----------------------------
+   The row is a plain flex child of .shell.products-page, so its left and
+   right edges are the shell's content edges — the exact same boundaries
+   used by the header, toolbar and product grid. No negative margins, no
+   full-bleed offsets. Below 85em the row scrolls internally (scrollbar
+   hidden, page never scrolls); at ≥85em the desktop rule turns scrolling
+   off entirely so all 12 pills sit on one line. */
+.catalogue-pills {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--pill-row-gap, 0.25rem);
+  padding: 0.25rem 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.catalogue-pills::-webkit-scrollbar { display: none; }
+
+/* ---- Category pills: base sizing --------------------------------------
+   Comfortable, readable size. Phones and tablets scroll the row, so there
+   is nothing to be gained by shrinking the labels here — only the ≥85em
+   one-line band below needs fluid sizing, and it declares its own. */
+.catalogue-pill {
+  --pill-icon: 0.875rem;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  font-size: 0.8125rem;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+  height: 38px;
+  min-height: 38px;
+  max-height: 38px;
+  gap: 0.3125rem;
+  line-height: 1;
+}
+
+.catalogue-pill-icon {
+  position: relative;
+  width: var(--pill-icon);
+  height: var(--pill-icon);
+  flex: 0 0 var(--pill-icon);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.catalogue-pill-icon > span,
+.catalogue-pill-icon img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
+}
+
+/* ---- Desktop: compact, centred, fully-contained pill navigation ----
+   Applies at >=64em (1024px) only — phones and tablets keep the base
+   left-aligned contained scroller untouched below.
+
+   The row stays a plain flex child of .shell.products-page (same content
+   boundaries as the toolbar and grid) and centres its pill group with
+   `safe center`, so there is balanced breathing room on both sides.
+   Sizing is compact and fluid (34–36px pills, ~10–12px labels) so all 12
+   categories fit on ONE row with every pill fully visible: no wrapping,
+   no desktop scrolling (overflow-x is clip purely as a backstop so the
+   row can never cause page-level horizontal overflow), no transforms,
+   no negative margins, no offsets. */
+@media (min-width: 64em) {
+  .catalogue-pills {
+    width: 100%;
+    justify-content: center;
+    justify-content: safe center;
+    gap: clamp(0.25rem, 0.196rem + 0.18vw, 0.375rem);
+    overflow-x: clip;
+  }
+  .catalogue-pill {
+    --pill-icon: clamp(0.6875rem, 0.505rem + 0.256vw, 0.8125rem);
+    flex: 0 1 auto;
+    font-size: clamp(0.625rem, 0.4425rem + 0.256vw, 0.75rem);
+    padding-left: clamp(0.25rem, -0.237rem + 0.718vw, 0.625rem);
+    padding-right: clamp(0.25rem, -0.237rem + 0.718vw, 0.625rem);
+    gap: 0.3125rem;
+    height: clamp(2.125rem, 1.9425rem + 0.256vw, 2.25rem);
+    min-height: clamp(2.125rem, 1.9425rem + 0.256vw, 2.25rem);
+    max-height: clamp(2.125rem, 1.9425rem + 0.256vw, 2.25rem);
+  }
+}
+
+/* ---- Narrow desktop (1024–1139px): balanced two-row wrap -------------
+   Measured reality: 12 readable pills need ~1140px for one row, but only
+   ~940–1050px exist here — one row would force ~8px text or hidden pills.
+   So in this sliver only, pills wrap into centred rows instead: everything
+   stays fully visible, readable and centred, with no scrolling, no page
+   overflow and no clipping. At >=1140px the single-row rule above applies.
+   Phones/tablets (<1024px) keep their existing scroller, unchanged. */
+@media (min-width: 64em) and (max-width: 71.1875em) {
+  .catalogue-pills {
+    flex-wrap: wrap;
+    justify-content: center;
+    row-gap: 0.5rem;
+    overflow-x: visible;
+  }
+}
+
+/* ---- Search ---------------------------------------------------------- */
+.catalogue-search {
+  display: flex;
+  justify-content: center;
+}
+
+.catalogue-search-field {
+  position: relative;
+  width: min(100%, 34rem);
+  display: flex;
+  align-items: center;
+}
+
+.catalogue-search-icon {
+  position: absolute;
+  left: 0.875rem;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  width: 1rem;
+  height: 1rem;
+  color: var(--text-subtle);
+}
+
+.catalogue-search-field input {
+  width: 100%;
+  min-height: 2.75rem;
+  background: var(--surface-card);
+  border: 1.5px solid var(--hairline-strong);
+  border-radius: var(--r-md);
+  padding: 0.6rem 2.75rem 0.6rem 2.5rem;
+  font-family: var(--font-body);
+  font-size: 0.9375rem;
+  color: var(--text-strong);
+  box-shadow: var(--shadow-xs);
+  transition: border-color var(--dur-fast) var(--ease-out-soft),
+    box-shadow var(--dur-fast) var(--ease-out-soft);
+}
+
+.catalogue-search-field input::placeholder { color: var(--text-subtle); }
+
+.catalogue-search-field input:focus {
+  outline: none;
+  border-color: var(--ember-500);
+  box-shadow: var(--shadow-xs), 0 0 0 3px rgba(223, 76, 33, 0.12);
+}
+
+.dark .catalogue-search-field input {
+  background: rgba(237, 231, 223, 0.05);
+  border-color: var(--hairline-strong);
+  color: var(--text-strong);
+}
+
+.dark .catalogue-search-field input:focus {
+  border-color: var(--saffron-400);
+  box-shadow: 0 0 0 4px rgba(247, 174, 44, 0.18);
+}
+
+.catalogue-search-clear {
+  position: absolute;
+  right: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border: none;
+  border-radius: 999px;
+  background: var(--surface-sunken);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 120ms ease, background 120ms ease;
+}
+
+.catalogue-search-clear:hover {
+  background: var(--surface-raised);
+  color: var(--text-strong);
+}
+
+/* ---- Toolbar: count + sort + view toggle ------------------------------ */
+.catalogue-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--hairline);
+}
+
+.catalogue-count {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.catalogue-toolbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.sort-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.sort-select {
+  appearance: none;
+  -webkit-appearance: none;
+  background: var(--surface-card);
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--r-pill);
+  padding: 0.4rem 2rem 0.4rem 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  font-family: var(--font-body);
+  color: var(--text-body);
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236B6459' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.5rem center;
+  min-height: 34px;
+  box-shadow: var(--shadow-xs);
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.sort-select:focus {
+  outline: none;
+  border-color: var(--ember-600);
+  box-shadow: 0 0 0 3px rgba(195, 58, 20, 0.12);
+}
+
+.view-toggle {
+  display: flex;
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--r-pill);
+  overflow: hidden;
+}
+
+.view-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: none;
+  background: var(--surface-card);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.view-toggle-btn + .view-toggle-btn {
+  border-left: 1px solid var(--hairline-strong);
+}
+
+.view-toggle-btn.active {
+  background: var(--grad-maroon);
+  color: #FFFFFF;
+}
+
+.view-toggle-btn:not(.active):hover {
+  background: var(--surface-sunken);
+  color: var(--text-body);
+}
+
+/* ---- Admin reorder row ------------------------------------------------ */
+.catalogue-admin {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  margin-top: 0.5rem;
+}
+
+.admin-reorder {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  gap: 0.4rem;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--hairline-strong);
+  background: var(--surface-card);
+  padding: 0 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  font-family: var(--font-body);
+  color: var(--text-body);
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+
+.admin-reorder.active {
+  background: var(--leaf-600);
+  border-color: var(--leaf-600);
+  color: #FFFFFF;
+  box-shadow: var(--shadow-sm);
+}
+
+.admin-reorder:not(.active):hover {
+  border-color: var(--ember-600);
+  color: var(--maroon-700);
+  background: #FFF4EF;
+}
+
+.admin-reorder-hint {
+  border-radius: var(--r-sm);
+  padding: 0.35rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+/* ---- Products page header: tighter vertical rhythm --------------------
+   Desktop minimum is 44px (requirement: 44–56px), subtitle 16px. The
+   mobile block below overrides for phones. */
+.products-page-header .section-title {
+  font-size: clamp(2.75rem, 1.825rem + 1.083vw, 3.125rem);
+}
+
+/* =========================================================================
+   MOBILE RESPONSIVE CORRECTIONS
+   Scoped to phones so desktop/tablet (≥640px) keeps its premium layout.
+
+   One coherent rule set, in this order:
+     1. tokens (gutter, section rhythm)   4. sections, top to bottom
+     2. the shared content boundary       5. controls (tap-target band)
+     3. typography                        6. page-level overflow guard
+   Everything here is layout, not per-screenshot nudges. Nothing below
+   ≥640px is touched, so the desktop site is byte-for-byte unchanged.
+   ========================================================================= */
+@media (max-width: 639px) {
+  /* ---- 1. Tokens ------------------------------------------------------ */
+  :root {
+    /* The single mobile gutter. Every section aligns to this boundary. */
+    --gutter: 1.125rem;
+    --space-section: clamp(2.5rem, 2rem + 2vw, 3rem);
+    --space-block: clamp(1.75rem, 1.4rem + 2vw, 2.25rem);
+    --space-heading: clamp(1.35rem, 1.1rem + 1.6vw, 1.75rem);
+  }
+
+  /* ---- 2. Shared content boundary ------------------------------------
+     On phones the three shells collapse into one identical boundary: full
+     viewport width with the gutter as the only inset. The desktop shells
+     inset twice (92vw *and* their own padding, which differed per shell),
+     which is what made sections start at different x positions and left
+     the content column too narrow for real words to fit. */
+  .shell,
+  .shell-narrow,
+  .shell-wide,
+  .shell.products-page {
+    width: 100%;
+    max-width: 100%;
+    padding-inline: var(--gutter);
+  }
+
+  /* ---- 3. Typography --------------------------------------------------
+     Words must never split mid-word on a phone. `overflow-wrap: anywhere`
+     (previously set on category titles) also collapses an element's
+     min-content width to one character, which let flex/grid squeeze the
+     title to ~35px and stack it letter by letter. `break-word` keeps
+     min-content at the longest word, so the box asks for the room a word
+     actually needs and only breaks a word that cannot fit on its own. */
+  h1, h2, h3, h4,
+  .section-title,
+  .subsection-title,
+  .card-title,
+  .category-title,
+  .product-title {
+    word-break: normal;
+    overflow-wrap: break-word;
+    hyphens: none;
+  }
+
+  .section-title {
+    font-size: clamp(1.625rem, 1.4rem + 1.6vw, 1.9rem);
+    line-height: 1.15;
+  }
+
+  .section-title.mt-3 { margin-top: 0.35rem; }
+
+  .section-eyebrow { letter-spacing: 0.16em; }
+
+  /* SectionHeading subtitle — keep it from sprawling across the screen. */
+  .section-title + p.mt-2\.5 { margin-top: 0.4rem; }
+
+  /* ---- 4. Sections ---------------------------------------------------- */
+
+  /* Hero benefit row: Licensed (full) / Safe Delivery | Best Prices /
+     Fast Shipping (full) — a deliberate, centred mobile layout. */
+  .hero-benefits {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem 0.75rem;
+    justify-content: center;
+  }
+  .hero-benefits > li {
+    justify-content: center !important;
+  }
+  .hero-benefits > li:nth-child(1),
+  .hero-benefits > li:nth-child(4) {
+    grid-column: 1 / -1;
+  }
+
+  /* Category cards — two equal columns that never exceed the viewport.
+     The pip moves to the meta row in the component on this breakpoint, so
+     the title owns the full inner width. Every pixel not spent on padding,
+     icon or gap goes to the name: at 360px that leaves ~85px, enough for
+     the longest label ("Guns, Rolls & Pop Pop") to wrap onto two whole-word
+     lines. Because grid rows stretch, one three-line title would inflate
+     its neighbour too, which is what pushed cards past 100px. min-height
+     holds the floor so single-word cards don't collapse under the icon. */
+  .category-grid,
+  .category-grid-overflow {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.625rem;
+    margin-top: 0.625rem;
+  }
+  .category-card {
+    padding: 0.75rem !important;
+    min-height: 4.5rem;
+    min-width: 0;
+  }
+  .category-card .category-icon-wrap { height: 2.5rem; width: 2.5rem; }
+  .category-title {
+    font-size: 0.9375rem;
+    line-height: 1.25;
+  }
+
+  /* Festive Deals / Offers — guarantee a single stacked centred column on
+     phones regardless of any desktop grid classes. */
+  .promo-grid,
+  .deals-grid {
+    grid-template-columns: 1fr !important;
+    justify-items: center;
+  }
+  .promo-grid > *,
+  .deals-grid > * { width: 100%; max-width: 100%; }
+
+  /* Related / featured rail cards stay fully inside the viewport. */
+  .rail { --rail-gap: 0.75rem; max-width: 100%; }
+
+  /* Why Choose — centre the lone fifth card in the final row instead of
+     stranding it on the left. */
+  .trust-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .trust-grid > :nth-child(5) {
+    grid-column: 1 / -1;
+    justify-self: center;
+    max-width: 50%;
+    width: 100%;
+  }
+
+  /* Footer — the two-column Quick Links / Categories block and all vertical
+     rhythm live on the component as responsive utilities. The floating
+     WhatsApp button is fixed 16px from the bottom-right, so its 72px
+     footprint is reserved as space *below* the bottom bar rather than as a
+     right-hand inset on it. That keeps the bottom bar on the same 18px
+     left/right boundary as every other section while guaranteeing the
+     copyright line is never sitting underneath the button. */
+  footer { padding-bottom: 4.5rem; }
+
+  /* Images never exceed their box or stretch. Explicit width/height
+     attributes on <img> are intrinsic hints, not mobile layout. */
+  img { max-width: 100%; }
+
+  /* ---- 5. Controls ----------------------------------------------------
+     One tap-target band for every button and text input. On desktop each
+     block sets its own vertical padding, so heights land anywhere from
+     43px to 52px; side by side on a phone that reads as sloppiness. The
+     padding is normalised here and min-height holds the floor, so every
+     control resolves to the same 46px regardless of which utilities the
+     component happens to carry. */
+  .btn-primary,
+  .btn-gold,
+  .input-premium {
+    min-height: 2.875rem;
+    padding-block: 0.5rem;
+  }
+
+  /* ---- 6. Products page — compact catalogue layout ------------------
+      Desktop (≥640px) keeps its existing layout byte-for-byte unchanged.
+      Mobile: pills scroll horizontally, toolbar stacks. */
+  .products-page-header .section-eyebrow { margin-top: 0; }
+  .products-page-header .section-title { margin-top: 0.25rem; font-size: clamp(1.5rem, 1.25rem + 1.4vw, 1.85rem); }
+
+  /* Pills: the base rule already makes the row a contained scroller with
+     a hidden scrollbar. On phones, bump the label back to a readable size
+     — the row scrolls, so the fit math that constrains desktop doesn't
+     apply — and keep a $gutter-sized edge spacer at the end. */
+  .catalogue-pill {
+    font-size: 0.75rem;
+    padding-left: 0.4375rem;
+    padding-right: 0.4375rem;
+    height: 34px;
+    min-height: 34px;
+    max-height: 34px;
+  }
+  .catalogue-pills { padding-right: var(--gutter); }
+
+  /* Toolbar: stack vertically on very small screens */
+  .catalogue-toolbar { gap: 0.4rem; margin-top: 0.75rem; padding-top: 0.625rem; }
+  .catalogue-toolbar-actions { width: 100%; justify-content: space-between; }
+
+  /* ---- 7. Page-level overflow guard ----------------------------------
+      A backstop, not the fix: every overflowing element above is corrected
+      at its source (shells, grids, rail viewports). */
+  html, body {
+    max-width: 100%;
+    overflow-x: clip;
+  }
+}
+
+/* =========================================================================
+   PRODUCTS PAGE — DEDICATED MOBILE LAYOUT (<=767px)
+   Spec: premium mobile catalogue, not a squeezed desktop. Every rule here
+   is scoped to max-width 767px, so desktop >=1024 stays byte-identical.
+   ========================================================================= */
+@media (max-width: 767px) {
+  /* ---- 1. MOBILE HEADER 58-64px ---------------------------------------
+     Compact, no overflow. Mirrors spec layout [menu] [LOGO] [search] [cart].
+     Desktop (lg:flex / lg:hidden) is hidden via lg breakpoint already; this
+     only tightens the mobile bar that remains. */
+  nav.sticky .shell {
+    min-height: 58px;
+    max-height: 64px;
+    display: flex;
+    align-items: center;
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+  nav.sticky .shell > div.lg\:hidden {
+    min-height: 58px;
+    max-height: 64px;
+    width: 100%;
+    gap: 0.5rem;
+  }
+  /* Prevent header content from forcing page width */
+  nav.sticky {
+    max-width: 100%;
+    overflow-x: clip;
+  }
+
+  /* ---- 2. MOBILE CATALOGUE HEADER — compact ---------------------------
+     Catalogue + Our Products with ~16-24px below, no desktop subtitle. */
+  .shell.products-page {
+    padding-top: 0.75rem !important;
+    padding-bottom: 1rem !important;
+    padding-inline: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  /* All direct sections share the same 20px content boundary, so header,
+     toolbar and grid start at the same x. The category strip owns its own
+     20px edge spacers internally (no negative margins). */
+  .shell.products-page > header,
+  .shell.products-page > .catalogue-toolbar,
+  .shell.products-page > .catalogue-admin,
+  .shell.products-page > .mt-6 {
+    padding-inline: 20px;
+  }
+  .products-page-header {
+    padding-top: 0.25rem;
+    padding-bottom: 0;
+    margin-bottom: 0;
+  }
+  .products-page-header .section-eyebrow {
+    font-size: 0.6875rem;
+    letter-spacing: 0.18em;
+    margin: 0;
+    line-height: 1;
+  }
+  .products-page-header .section-title {
+    font-size: clamp(1.4rem, 1.2rem + 1.2vw, 1.75rem) !important;
+    line-height: 1.15 !important;
+    margin-top: 0.25rem !important;
+    margin-bottom: 0 !important;
+  }
+  /* If a desktop subtitle exists, hide it on mobile per spec */
+  .products-page-header .section-title + p,
+  .products-page-header p:not(.section-eyebrow):not(.section-title) {
+    display: none !important;
+  }
+
+  /* ---- 3. CATEGORY NAVIGATION — dedicated scroll container ------------
+     Page must NOT scroll horizontally; only this strip scrolls. */
+  /* Spec selectors — guarantee they exist for verification */
+  .category-scroll-container {
+    overflow-x: auto;
+    overflow-y: hidden;
+    width: 100%;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .category-scroll-container::-webkit-scrollbar { display: none; }
+  .category-list {
+    display: flex;
+    flex-wrap: nowrap;
+    width: max-content;
+  }
+  .category-pill {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  /* Actual catalogue pills - map spec to existing class */
+  /* Shell itself has no horizontal padding at mobile; each section
+     provides its own 20px so the scroll strip can own its edge spacing
+     without negative margins or viewport offsets. */
+  .shell.products-page {
+    overflow: visible !important;
+  }
+  .catalogue-pills {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    gap: 0.5rem !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    padding: 4px 20px !important;
+    margin: 0 !important;
+    scroll-padding-left: 20px;
+    scroll-padding-right: 20px;
+  }
+  .catalogue-pills::-webkit-scrollbar { display: none !important; }
+
+  /* ---- 4. MOBILE CATEGORY PILL SIZE — 32-36px ------------------------ */
+  .catalogue-pill {
+    height: 34px !important;
+    min-height: 34px !important;
+    max-height: 34px !important;
+    padding: 0 12px !important;
+    gap: 6px !important;
+    font-size: 11.5px !important;
+    line-height: 1 !important;
+    white-space: nowrap !important;
+    flex: 0 0 auto !important;
+  }
+  .catalogue-pill-icon {
+    width: 13px !important;
+    height: 13px !important;
+    flex: 0 0 13px !important;
+  }
+  /* Also target spec pill class if used elsewhere */
+  .category-pill {
+    height: 34px;
+    padding: 0 12px;
+    gap: 6px;
+    font-size: 11.5px;
+    line-height: 1;
+  }
+
+  /* Stack spacing: catalogue heading -> category scroller -> divider -> toolbar */
+  .catalogue-pills {
+    margin-top: 16px !important;
+  }
+
+  /* ---- 5. PRODUCTS TOOLBAR — clean two-row mobile layout --------------
+     Row 1: Showing count full width
+     Row 2: [Reorder] [Featured /] [Grid/List] — no overflow */
+  .catalogue-toolbar {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+    margin-top: 16px !important;
+    padding-top: 12px !important;
+    padding-bottom: 0 !important;
+    border-top: 1px solid var(--hairline) !important;
+  }
+  .catalogue-count {
+    font-size: 0.8125rem !important;
+    width: 100%;
+    text-align: left;
+    order: 1;
+  }
+  .catalogue-toolbar-actions {
+    width: 100% !important;
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    gap: 8px !important;
+    order: 2;
+    justify-content: space-between !important;
+    max-width: 100%;
+    overflow: hidden;
+  }
+  /* Reorder button (mobile duplicate) sits left, sort + view toggle right */
+  .catalogue-toolbar-actions .admin-reorder,
+  .catalogue-toolbar-actions .sort-select,
+  .catalogue-toolbar-actions .view-toggle {
+    flex-shrink: 0;
+  }
+  .catalogue-toolbar-actions .sort-select {
+    min-width: 0;
+    flex: 1 1 auto;
+    max-width: 140px;
+    font-size: 0.8125rem;
+  }
+  .catalogue-toolbar .sort-label {
+    display: none !important;
+  }
+  /* Hide original admin reorder row on mobile — we show inline duplicate */
+  .catalogue-admin {
+    margin-top: 8px !important;
+    gap: 8px !important;
+    flex-wrap: wrap;
+  }
+  .catalogue-admin .admin-reorder {
+    display: none !important;
+  }
+  .catalogue-admin .admin-reorder-hint {
+    width: 100%;
+    font-size: 0.75rem;
+  }
+  /* Mobile-inline reorder (injected in toolbar for <=767) */
+  .mobile-admin-reorder {
+    display: inline-flex !important;
+  }
+
+  /* ---- 6. PRODUCT GRID — exactly 2 columns --------------------------- */
+  .shell.products-page .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+  }
+  /* Override the responsive md/lg/xl grid classes at mobile */
+  .shell.products-page [class*="grid-cols-"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+  .shell.products-page .mt-6 {
+    margin-top: 16px !important;
+  }
+
+  /* ---- 7 & 8. PRODUCT CARD MOBILE DESIGN ------------------------------
+     Tighter card: image 155-175px, compact padding, tighter typography. */
+  .shell.products-page .card-premium {
+    border-radius: 12px !important;
+  }
+  .shell.products-page .card-premium:hover {
+    transform: none !important;
+    box-shadow: var(--shadow-sm) !important;
+  }
+  .shell.products-page .product-img-panel {
+    aspect-ratio: 1 / 0.9 !important;
+    min-height: 155px !important;
+    max-height: 175px !important;
+  }
+  .shell.products-page .product-img-panel img {
+    padding: 10px !important;
+    object-fit: contain !important;
+    object-position: center !important;
+  }
+  .shell.products-page .card-premium > div:last-child,
+  .shell.products-page .card-premium .flex-grow {
+    padding: 10px 11px 11px 11px !important;
+  }
+  .shell.products-page .product-name,
+  .shell.products-page .card-title.product-name {
+    font-size: 14px !important;
+    line-height: 1.25 !important;
+    -webkit-line-clamp: 2 !important;
+    line-clamp: 2 !important;
+    min-height: 0 !important;
+  }
+  .shell.products-page .card-premium a.mt-1\.5 {
+    min-height: 0 !important;
+    margin-top: 4px !important;
+  }
+  .shell.products-page .badge {
+    font-size: 10px !important;
+    padding: 2px 6px !important;
+  }
+  .shell.products-page .price {
+    font-size: 1rem !important;
+    line-height: 1 !important;
+  }
+  .shell.products-page .price + .price {
+    font-size: 0.75rem !important;
+  }
+  .shell.products-page .card-premium .mt-auto {
+    padding-top: 8px !important;
+    margin-top: 8px !important;
+  }
+  /* Add to Cart: full-width, 40-44px */
+  .shell.products-page .btn-primary {
+    min-height: 42px !important;
+    height: 42px !important;
+    padding: 0 12px !important;
+    font-size: 13px !important;
+    width: 100% !important;
+  }
+  .shell.products-page .card-premium .min-h-\[6rem\] {
+    min-height: 42px !important;
+  }
+  .shell.products-page .card-premium .mt-3.flex {
+    margin-top: 10px !important;
+    min-height: 42px !important;
+  }
+  /* Stepper states also stay 42px */
+  .shell.products-page .card-premium .min-h-\[44px\] {
+    min-height: 42px !important;
+  }
+
+  /* ---- 10. MOBILE SPACING consistent 20px ---------------------------- */
+  /* Flow already tightened above; ensure no large desktop gaps remain */
+  .shell.products-page > header + nav,
+  .shell.products-page > header + .category-scroll-container {
+    margin-top: 0 !important;
+  }
+
+  /* ---- 11. NO PAGE HORIZONTAL OVERFLOW ------------------------------- */
+  html, body, #root {
+    max-width: 100% !important;
+    overflow-x: hidden !important;
+  }
+  .shell.products-page,
+  .shell.products-page * {
+    max-width: 100%;
+  }
+  /* But allow category scroller to overflow internally */
+  .catalogue-pills,
+  .category-scroll-container {
+    max-width: none !important;
+  }
+  .catalogue-pills *,
+  .category-scroll-container * {
+    max-width: none;
+  }
+  img, video, iframe {
+    max-width: 100%;
+  }
+
+  /* ---- 13. REMOVE BOUNCE/ENTRANCE ANIMATIONS ON MOBILE -------------- */
+  .shell.products-page .card-premium,
+  .shell.products-page .catalogue-pill,
+  .shell.products-page .catalogue-pills {
+    animation: none !important;
+    transition: none !important;
+  }
+  .shell.products-page .card-premium {
+    transform: none !important;
+  }
+  /* Disable hover scale on image at mobile */
+  .shell.products-page .group:hover img {
+    transform: none !important;
+  }
+  /* Page entrance is already disabled in App.jsx for /products; ensure no
+     framer stagger remains visible */
+  .shell.products-page [style*="transform"] {
+    transform: none !important;
+  }
+}
+
+/* Hide mobile inline reorder on desktop */
+@media (min-width: 768px) {
+  .mobile-admin-reorder { display: none !important; }
+}
 
 /* Print — price lists and invoices must come out clean. */
 @media print {

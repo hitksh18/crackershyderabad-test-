@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Sparkles } from 'lucide-react';
+import { readSiteSettings, announcementTexts } from '../lib/siteSettings';
 
 const DEFAULT_MESSAGES = [
   'Free Delivery above Rs. 2,000',
@@ -26,52 +27,24 @@ function repeat(arr, n) {
   return result;
 }
 
-const TopBanner = () => {
-  const [bannerSettings, setBannerSettings] = useState({
-    topBannerEnabled: true,
-    topBannerMessages: [],
-    topBannerText: 'Free Delivery above Rs. 2,000',
-    promoMessage: 'SPECIAL FESTIVE OFFERS!',
-  });
-
+/* Measure the track and pick enough copies + duration for a seamless loop.
+   Shared by the storefront bar and the canvas live preview. */
+function useMarqueeCopies(messageCount) {
   const viewportRef = useRef(null);
   const trackRef = useRef(null);
   const [copies, setCopies] = useState(4);
   const [trackDuration, setTrackDuration] = useState(30);
 
-  useEffect(() => {
-    const fetchBannerSettings = async () => {
-      try {
-        const bannerDoc = await getDoc(doc(db, 'bannerSettings', 'main'));
-        if (bannerDoc.exists()) {
-          setBannerSettings(prev => ({ ...prev, ...bannerDoc.data() }));
-        }
-      } catch (error) {
-        console.error('Error fetching banner settings:', error);
-      }
-    };
-
-    fetchBannerSettings();
-  }, []);
-
-  const stored = Array.isArray(bannerSettings.topBannerMessages)
-    ? bannerSettings.topBannerMessages
-    : [];
-  const messages = stored.length > 0
-    ? stored
-    : [bannerSettings.topBannerText, bannerSettings.promoMessage].filter(Boolean);
-
-  /* Measure and ensure enough copies to fill the viewport. */
   const measure = useCallback(() => {
     const viewport = viewportRef.current;
     const track = trackRef.current;
-    if (!viewport || !track || messages.length === 0) return;
+    if (!viewport || !track || messageCount === 0) return;
 
     const viewportWidth = viewport.offsetWidth;
 
     /* First, figure out how wide a single message-set is using the minimum copies
        we already rendered. We temporarily set the track to 1 copy to measure. */
-    const prevCopies = track.children.length / messages.length;
+    const prevCopies = track.children.length / messageCount;
 
     /* Measure width of one copy by temporarily rendering just 2 sets. */
     const oneSetWidth = (track.scrollWidth / Math.max(prevCopies, 1));
@@ -89,7 +62,7 @@ const TopBanner = () => {
     const speed = 40; /* px per second */
     const totalWidth = oneSetWidth * neededCopies;
     setTrackDuration(totalWidth / (speed * 2)); /* /2 because we animate to -50% */
-  }, [messages.length]);
+  }, [messageCount]);
 
   useEffect(() => {
     /* Small delay to let the track render so measurement works. */
@@ -97,7 +70,7 @@ const TopBanner = () => {
       measure();
     });
     return () => cancelAnimationFrame(raf);
-  }, [measure, messages]);
+  }, [measure, messageCount]);
 
   useEffect(() => {
     const viewport = viewportRef.current;
@@ -108,9 +81,11 @@ const TopBanner = () => {
     return () => ro.disconnect();
   }, [measure]);
 
-  if (!bannerSettings.topBannerEnabled) return null;
-  if (messages.length === 0) return null;
+  return { viewportRef, trackRef, copies, trackDuration };
+}
 
+/* The scrolling strip itself, shared by the storefront and the canvas preview. */
+const BannerStrip = ({ messages, copies, viewportRef, trackRef, trackDuration }) => {
   const track = repeat(messages, copies);
 
   return (
@@ -181,6 +156,95 @@ const TopBanner = () => {
         style={{ background: 'linear-gradient(90deg, transparent, rgba(210, 166, 79, 0.75), transparent)' }}
       />
     </div>
+  );
+};
+
+/* Canvas live preview: the real strip driven by draft state, no Firestore. */
+export const TopBannerPreview = ({ messages, enabled = true }) => {
+  const list = Array.isArray(messages) ? messages.filter(Boolean) : [];
+  const { viewportRef, trackRef, copies, trackDuration } = useMarqueeCopies(list.length);
+  if (enabled === false) return null;
+  if (list.length === 0) return null;
+  return (
+    <BannerStrip
+      messages={list}
+      copies={copies}
+      viewportRef={viewportRef}
+      trackRef={trackRef}
+      trackDuration={trackDuration}
+    />
+  );
+};
+
+/* `preview` ({ messages: string[], enabled }) renders the canvas live preview
+   without touching Firestore. Otherwise the saved configuration is read. */
+const TopBanner = ({ preview } = {}) => {
+  const [bannerSettings, setBannerSettings] = useState({
+    topBannerEnabled: true,
+    topBannerMessages: [],
+    topBannerText: 'Free Delivery above Rs. 2,000',
+    promoMessage: 'SPECIAL FESTIVE OFFERS!',
+  });
+
+  useEffect(() => {
+    if (preview) return undefined;
+    const fetchBannerSettings = async () => {
+      try {
+        // New centralized siteSettings takes precedence
+        const site = await readSiteSettings();
+        if (site.announcementBar && Array.isArray(site.announcementBar.messages) && site.announcementBar.messages.length > 0) {
+          setBannerSettings(prev => ({
+            ...prev,
+            topBannerEnabled: site.announcementBar.enabled !== false,
+            topBannerMessages: announcementTexts(site.announcementBar).slice(0, 5),
+          }));
+          return;
+        }
+        const bannerDoc = await getDoc(doc(db, 'bannerSettings', 'main'));
+        if (bannerDoc.exists()) {
+          setBannerSettings(prev => ({ ...prev, ...bannerDoc.data() }));
+        }
+      } catch (error) {
+        console.error('Error fetching banner settings:', error);
+      }
+    };
+
+    fetchBannerSettings();
+  }, [preview]);
+
+  if (preview) {
+    return <TopBannerPreview messages={preview.messages} enabled={preview.enabled} />;
+  }
+
+  const stored = Array.isArray(bannerSettings.topBannerMessages)
+    ? bannerSettings.topBannerMessages
+    : [];
+  const messages = stored.length > 0
+    ? stored
+    : [bannerSettings.topBannerText, bannerSettings.promoMessage].filter(Boolean);
+
+  return (
+    <TopBannerBody
+      enabled={bannerSettings.topBannerEnabled}
+      messages={messages}
+    />
+  );
+};
+
+const TopBannerBody = ({ enabled, messages }) => {
+  const { viewportRef, trackRef, copies, trackDuration } = useMarqueeCopies(messages.length);
+
+  if (!enabled) return null;
+  if (messages.length === 0) return null;
+
+  return (
+    <BannerStrip
+      messages={messages}
+      copies={copies}
+      viewportRef={viewportRef}
+      trackRef={trackRef}
+      trackDuration={trackDuration}
+    />
   );
 };
 

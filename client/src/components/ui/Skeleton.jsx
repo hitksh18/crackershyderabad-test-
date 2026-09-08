@@ -61,7 +61,7 @@ export const ProductGridSkeleton = ({ count = 8, label = 'Loading products' }) =
     role="status"
     aria-live="polite"
     aria-busy="true"
-    className="grid grid-cols-1 gap-4 md:grid-cols-3 md:gap-6 lg:grid-cols-4"
+    className="grid grid-cols-1 gap-4 md:grid-cols-3 md:gap-6 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6"
   >
     <span className="sr-only">{label}</span>
     {Array.from({ length: count }).map((_, i) => (

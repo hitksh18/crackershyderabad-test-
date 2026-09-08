@@ -3,12 +3,13 @@ import { motion } from 'framer-motion';
 import { Plus, PackageSearch, LoaderCircle, ShoppingBag, ArrowDownWideNarrow } from 'lucide-react';
 import { revealVariants } from '../../lib/motion';
 import { REGISTER_PANEL } from './surfaces';
+import { displayNameForCategory } from '../../lib/categoryIcons';
 
 const CATEGORIES = [
   'Rockets',
   'Sparkles',
   'Ground Chakkars',
-  'Fancy Fireworks',
+  'Sky Shots',
   'Gift Boxes',
   'Flower Pots',
   'Bombs',
@@ -209,7 +210,7 @@ const ProductPickerPanel = ({
                         {product.name}
                       </p>
                       <p className="mt-0.5 truncate text-[0.625rem] font-medium" style={{ color: 'var(--text-muted)' }}>
-                        {cats.join(', ')}
+                        {cats.map(displayNameForCategory).join(', ')}
                       </p>
                     </div>
                   </div>

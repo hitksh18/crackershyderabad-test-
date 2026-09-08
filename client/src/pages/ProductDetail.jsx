@@ -12,7 +12,7 @@ import { useCart } from '../context/CartContext';
 import { useWishlist } from '../context/WishlistContext';
 import ImagePlaceholder from '../components/ImagePlaceholder';
 import CategoryIcon from '../components/CategoryIconPack';
-import { slugForCategory } from '../lib/categoryIcons';
+import { slugForCategory, displayNameForCategory } from '../lib/categoryIcons';
 import ProductWatermark from '../components/ProductWatermark';
 import QuantityInput from '../components/QuantityInput';
 import ProductRail from '../components/product/ProductRail';
@@ -353,7 +353,7 @@ const ProductDetail = () => {
                     to={`/products?category=${encodeURIComponent(primaryCategory)}`}
                     className={crumbLink}
                   >
-                    {primaryCategory}
+                    {displayNameForCategory(primaryCategory)}
                   </Link>
                 </li>
               </>
@@ -671,7 +671,7 @@ const ProductDetail = () => {
                         <span className="h-4 w-4 shrink-0" aria-hidden="true">
                           <CategoryIcon category={slugForCategory(cat)} />
                         </span>
-                        {cat}
+                        {displayNameForCategory(cat)}
                       </Link>
                     ))}
                   </div>

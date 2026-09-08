@@ -11,6 +11,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import ImagePlaceholder from '../ImagePlaceholder';
+import { displayNameForCategory } from '../../lib/categoryIcons';
 import { DURATION } from '../../lib/motion';
 
 /**
@@ -154,7 +155,7 @@ const ProductRegisterRow = ({
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
             {shownCategories.map((cat, idx) => (
               <span key={`${cat}-${idx}`} className="badge badge-neutral">
-                {cat}
+                {displayNameForCategory(cat)}
               </span>
             ))}
             {extraCategories > 0 && (
@@ -166,7 +167,7 @@ const ProductRegisterRow = ({
 
       {/* Trailing cells — table columns at xl, wrapped chips below it. */}
       <div className="flex flex-wrap items-center gap-3 xl:contents">
-        {/* Pricing */}
+        {/* Pricing - uses same source of truth as Edit Product */}
         <div className="xl:w-[8.5rem] xl:shrink-0">
           <dl className="flex items-center gap-4 xl:block xl:space-y-0.5">
             <div className="flex items-baseline gap-1.5 xl:justify-between">
@@ -175,16 +176,19 @@ const ProductRegisterRow = ({
                 className="tabular text-sm font-semibold"
                 style={{ color: 'var(--text-strong)' }}
               >
-                ₹{product.price}
+                {(() => {
+                  const v = product.discountPrice ?? product.onlinePrice ?? product.price;
+                  return v != null && v !== '' ? `₹${Number(v).toLocaleString('en-IN')}` : '—';
+                })()}
               </dd>
             </div>
             <div className="flex items-baseline gap-1.5 xl:justify-between">
               <dt className="label-caps">Offline</dt>
               <dd className="tabular text-sm font-semibold" style={{ color: 'var(--text-body)' }}>
-                {/* Same precedence Billing and the price list use, so the
-                    register never shows a bare symbol for stock priced only
-                    through offlineMRP. */}
-                ₹{product.offlineDiscountPrice || product.offlineMRP || product.offlinePrice || product.price}
+                {(() => {
+                  const v = product.offlineDiscountPrice ?? product.offlineMRP ?? product.offlinePrice;
+                  return v != null && v !== '' ? `₹${Number(v).toLocaleString('en-IN')}` : '—';
+                })()}
               </dd>
             </div>
           </dl>

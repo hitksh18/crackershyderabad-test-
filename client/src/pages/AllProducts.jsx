@@ -1,41 +1,15 @@
 import { useState, useEffect, useRef } from 'react';
-import { motion } from 'framer-motion';
 import { collection, getDocs, deleteDoc, doc, updateDoc, writeBatch } from 'firebase/firestore';
 import { db } from '../firebase';
-import { ArrowLeft, GripVertical, Package, Plus, RotateCcw, Search, SlidersHorizontal } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { ArrowLeft, GripVertical, Package, Plus, RotateCcw, Search, ChevronDown } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import toast from '../utils/toast';
 import CustomModal from '../components/CustomModal';
 import { useModal } from '../hooks/useModal';
 import ProductRegisterRow from '../components/admin/ProductRegisterRow';
 import EmptyState from '../components/ui/EmptyState';
 import { TableSkeleton } from '../components/ui/Skeleton';
-import { useReducedMotion } from '../hooks/useReducedMotion';
-import { revealVariants } from '../lib/motion';
 import { deleteTradePricing, fetchTradePricingMap, mergeTradePricing } from '../lib/tradePricing';
-
-const METRIC_TONE = {
-  strong: 'var(--text-strong)',
-  leaf: 'var(--leaf-600)',
-  crimson: 'var(--crimson-600)',
-  gold: 'var(--gold-600)',
-};
-
-const MetricCell = ({ label, value, tone = 'strong' }) => (
-  <div
-    className="rounded-[var(--r-md)] border px-4 py-3"
-    style={{
-      background: 'var(--surface-card)',
-      borderColor: 'var(--hairline)',
-      boxShadow: 'var(--shadow-xs)',
-    }}
-  >
-    <p className="label-caps">{label}</p>
-    <p className="tabular mt-1 text-2xl font-bold leading-none" style={{ color: METRIC_TONE[tone] }}>
-      {value}
-    </p>
-  </div>
-);
 
 const AllProducts = () => {
   const [products, setProducts] = useState([]);
@@ -48,8 +22,6 @@ const AllProducts = () => {
   const [dragOverId, setDragOverId] = useState(null);
   const dirtyRef = useRef(false);
   const { isOpen, modalConfig, openModal, closeModal, handleConfirm } = useModal();
-  const navigate = useNavigate();
-  const reduced = useReducedMotion();
 
   useEffect(() => {
     fetchProducts();
@@ -57,11 +29,6 @@ const AllProducts = () => {
 
   const fetchProducts = async () => {
     try {
-      /* Wholesale figures live in `productPricing` (staff-only), not on the
-         world-readable product document. Fetched alongside, never after. */
-      // allSettled, not all: if the pricing read fails the register must still
-      // render, or an admin loses delete, reorder, feature and stock controls
-      // for every product over a missing price column.
       const [productsResult, pricingResult] = await Promise.allSettled([
         getDocs(collection(db, 'products')),
         fetchTradePricingMap(),
@@ -101,7 +68,6 @@ const AllProducts = () => {
       onConfirm: async () => {
         try {
           await deleteDoc(doc(db, 'products', productId));
-          // Trade pricing is a sibling document; it goes with the product.
           await deleteTradePricing(productId);
           setProducts(products.filter(p => p.id !== productId));
           toast.success('Product deleted successfully');
@@ -254,7 +220,7 @@ const AllProducts = () => {
     return matchesSearch && matchesCategory && matchesStock && matchesFeatured;
   });
 
-  const categories = ['All', 'Rockets', 'Sparkles', 'Ground Chakkars', 'Fancy Fireworks', 'Gift Boxes', 'Flower Pots', 'Bombs', 'Garlands', 'Kids Special', 'Guns, Rolls & Pop Pop', 'Threads and Novelties'];
+  const categories = ['All', 'Rockets', 'Sparkles', 'Ground Chakkars', 'Sky Shots', 'Gift Boxes', 'Flower Pots', 'Bombs', 'Garlands', 'Kids Special', 'Guns, Rolls & Pop Pop', 'Threads and Novelties'];
 
   const sortedAll = sortProductsByOrder(products);
   const sortedFiltered = sortProductsByOrder(filteredProducts);
@@ -266,22 +232,20 @@ const AllProducts = () => {
     setFilterFeatured('All');
   };
 
+  const hasActiveFilters = searchQuery || filterCategory !== 'All' || filterStock !== 'All' || filterFeatured !== 'All';
+
   if (loading) {
     return (
-      <div className="min-h-screen section-pad-sm" style={{ background: 'var(--surface-page)' }}>
-        <div className="shell">
-          <p className="label-caps">Operations</p>
-          <h1 className="section-title mt-1">All Products</h1>
-          <div className="mt-8">
-            <TableSkeleton rows={8} cols={4} label="Loading products" />
-          </div>
+      <div className="min-h-screen bg-[var(--surface-page)]">
+        <div className="mx-auto w-full max-w-[1550px] px-4 py-4 lg:px-8">
+          <TableSkeleton rows={8} cols={4} label="Loading products" />
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen section-pad-sm" style={{ background: 'var(--surface-page)' }}>
+    <div className="min-h-screen bg-[var(--surface-page)] text-[var(--text-body)] transition-colors duration-200 overflow-x-hidden">
       <CustomModal
         isOpen={isOpen}
         onClose={closeModal}
@@ -289,162 +253,136 @@ const AllProducts = () => {
         {...modalConfig}
       />
 
-      <div className="shell">
-        {/* Header */}
-        <motion.header
-          initial="hidden"
-          animate="visible"
-          variants={revealVariants(reduced, 14)}
-          className="mb-8"
-        >
-          <button
-            type="button"
-            onClick={() => navigate('/admin/dashboard')}
-            className="mb-5 inline-flex min-h-[44px] items-center gap-2 text-sm font-semibold transition-colors"
-            style={{ color: 'var(--text-muted)' }}
+      {/* Dedicated Products Navbar - ONE horizontal row */}
+      <header className="sticky top-0 z-30 flex min-h-[60px] w-full shrink-0 items-center border-b bg-[var(--surface-card)] px-4 py-2 transition-colors duration-200 lg:px-8" style={{ borderColor: 'var(--hairline)' }}>
+        <div className="mx-auto flex w-full max-w-[1550px] flex-wrap items-center gap-3 lg:flex-nowrap lg:gap-3">
+          <Link
+            to="/admin/dashboard"
+            className="inline-flex shrink-0 items-center gap-1.5 text-xs font-semibold"
+            style={{ color: 'var(--ember-600)' }}
           >
             <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-            Back to Dashboard
-          </button>
+            <span className="hidden sm:inline">Back to Dashboard</span>
+            <span className="sm:hidden">Back</span>
+          </Link>
 
-          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-            <div className="min-w-0">
-              <p className="label-caps">Operations</p>
-              <h1 className="section-title mt-1">All Products</h1>
-              <p className="mt-2 text-sm" style={{ color: 'var(--text-muted)' }}>
-                Manage, edit, and categorize your products
-              </p>
-            </div>
-
-            <Link to="/admin/add-product" className="btn-primary shrink-0 self-start md:self-auto">
-              <Plus className="h-4 w-4" aria-hidden="true" />
-              Add New Product
-            </Link>
-          </div>
-        </motion.header>
-
-        {/* Register metrics */}
-        <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
-          <MetricCell label="Total Products" value={products.length} />
-          <MetricCell label="In Stock" value={products.filter(p => !p.outOfStock).length} tone="leaf" />
-          <MetricCell label="Out of Stock" value={products.filter(p => p.outOfStock).length} tone="crimson" />
-          <MetricCell label="Featured" value={products.filter(p => p.isFeatured).length} tone="gold" />
-        </div>
-
-        {/* Filters */}
-        <motion.section
-          initial="hidden"
-          animate="visible"
-          variants={revealVariants(reduced, 14)}
-          aria-labelledby="product-filters-heading"
-          className="mb-6 rounded-[var(--r-lg)] border p-4 sm:p-5"
-          style={{
-            background: 'var(--surface-card)',
-            borderColor: 'var(--hairline)',
-            boxShadow: 'var(--shadow-xs)',
-          }}
-        >
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <h2
-              id="product-filters-heading"
-              className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider"
-              style={{ color: 'var(--text-strong)' }}
-            >
-              <SlidersHorizontal className="h-4 w-4" aria-hidden="true" style={{ color: 'var(--text-muted)' }} />
-              Filters
-            </h2>
-            <button type="button" onClick={clearFilters} className="btn-quiet">
-              <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
-              Clear All
-            </button>
+          <div className="relative w-full sm:w-[280px] lg:w-[300px] xl:w-[340px] order-last lg:order-none">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" style={{ color: 'var(--text-subtle)' }} />
+            <input
+              type="text"
+              placeholder="Search products..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="h-9 w-full rounded-full border bg-[var(--surface-sunken)] pl-10 pr-4 text-sm placeholder:text-[var(--text-subtle)] focus:outline-none transition-colors duration-200"
+              style={{ borderColor: 'var(--hairline)', color: 'var(--text-strong)' }}
+            />
           </div>
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <div>
-              <label htmlFor="product-search" className="label-caps mb-1.5 block">Search</label>
-              <div className="relative">
-                <Search
-                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2"
-                  aria-hidden="true"
-                  style={{ color: 'var(--text-subtle)' }}
-                />
-                <input
-                  id="product-search"
-                  type="text"
-                  placeholder="Search products..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="input-premium pl-9"
-                />
-              </div>
-            </div>
+          <h1 className="pointer-events-none absolute left-1/2 hidden -translate-x-1/2 text-sm font-bold tracking-tight lg:block" style={{ color: 'var(--text-strong)', fontFamily: 'var(--font-display)' }}>
+            All Products
+          </h1>
 
-            <div>
-              <label htmlFor="filter-category" className="label-caps mb-1.5 block">Category</label>
+          <div className="ml-auto flex items-center gap-2">
+            <div className="relative">
               <select
-                id="filter-category"
                 value={filterCategory}
                 onChange={(e) => setFilterCategory(e.target.value)}
-                className="input-premium"
+                className="h-9 appearance-none rounded-full border bg-[var(--surface-sunken)] pl-3 pr-8 text-xs font-semibold focus:outline-none"
+                style={{ borderColor: 'var(--hairline)', color: 'var(--text-body)' }}
               >
                 {categories.map(cat => (
-                  <option key={cat} value={cat}>{cat}</option>
+                  <option key={cat} value={cat}>{cat === 'All' ? 'Category: All' : cat}</option>
                 ))}
               </select>
+              <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2" style={{ color: 'var(--text-subtle)' }} />
             </div>
 
-            <div>
-              <label htmlFor="filter-stock" className="label-caps mb-1.5 block">Stock Status</label>
+            <div className="relative hidden sm:block">
               <select
-                id="filter-stock"
                 value={filterStock}
                 onChange={(e) => setFilterStock(e.target.value)}
-                className="input-premium"
+                className="h-9 appearance-none rounded-full border bg-[var(--surface-sunken)] pl-3 pr-8 text-xs font-semibold focus:outline-none"
+                style={{ borderColor: 'var(--hairline)', color: 'var(--text-body)' }}
               >
-                <option value="All">All</option>
+                <option value="All">Stock: All</option>
                 <option value="In Stock">In Stock</option>
                 <option value="Out of Stock">Out of Stock</option>
               </select>
+              <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2" style={{ color: 'var(--text-subtle)' }} />
             </div>
 
-            <div>
-              <label htmlFor="filter-featured" className="label-caps mb-1.5 block">Featured Status</label>
+            <div className="relative hidden sm:block">
               <select
-                id="filter-featured"
                 value={filterFeatured}
                 onChange={(e) => setFilterFeatured(e.target.value)}
-                className="input-premium"
+                className="h-9 appearance-none rounded-full border bg-[var(--surface-sunken)] pl-3 pr-8 text-xs font-semibold focus:outline-none"
+                style={{ borderColor: 'var(--hairline)', color: 'var(--text-body)' }}
               >
-                <option value="All">All</option>
+                <option value="All">Featured: All</option>
                 <option value="Featured">Featured</option>
                 <option value="Not Featured">Not Featured</option>
               </select>
+              <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2" style={{ color: 'var(--text-subtle)' }} />
+            </div>
+
+            {hasActiveFilters && (
+              <button type="button" onClick={clearFilters} className="hidden h-9 items-center gap-1 rounded-full border px-3 text-xs font-semibold sm:inline-flex" style={{ borderColor: 'var(--hairline)', background: 'var(--surface-sunken)', color: 'var(--text-muted)' }}>
+                <RotateCcw className="h-3.5 w-3.5" /> Clear
+              </button>
+            )}
+
+            <Link to="/admin/add-product" className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full px-4 text-xs font-bold text-white transition-colors duration-200" style={{ background: 'var(--grad-ember)' }}>
+              <Plus className="h-4 w-4" />
+              <span className="hidden sm:inline">Add New Product</span>
+              <span className="sm:hidden">Add</span>
+            </Link>
+          </div>
+
+          {/* Mobile second row for stock/featured when needed */}
+          <div className="flex w-full gap-2 sm:hidden">
+            <div className="relative flex-1">
+              <select
+                value={filterStock}
+                onChange={(e) => setFilterStock(e.target.value)}
+                className="h-9 w-full appearance-none rounded-full border bg-[var(--surface-sunken)] pl-3 pr-7 text-xs font-semibold"
+                style={{ borderColor: 'var(--hairline)', color: 'var(--text-body)' }}
+              >
+                <option value="All">Stock: All</option>
+                <option value="In Stock">In Stock</option>
+                <option value="Out of Stock">Out of Stock</option>
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3 w-3 -translate-y-1/2" style={{ color: 'var(--text-subtle)' }} />
+            </div>
+            <div className="relative flex-1">
+              <select
+                value={filterFeatured}
+                onChange={(e) => setFilterFeatured(e.target.value)}
+                className="h-9 w-full appearance-none rounded-full border bg-[var(--surface-sunken)] pl-3 pr-7 text-xs font-semibold"
+                style={{ borderColor: 'var(--hairline)', color: 'var(--text-body)' }}
+              >
+                <option value="All">Featured: All</option>
+                <option value="Featured">Featured</option>
+                <option value="Not Featured">Not Featured</option>
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3 w-3 -translate-y-1/2" style={{ color: 'var(--text-subtle)' }} />
             </div>
           </div>
+        </div>
+      </header>
 
-          <div className="mt-4 flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between" style={{ borderColor: 'var(--hairline)' }}>
-            <p className="text-sm" style={{ color: 'var(--text-muted)' }} role="status" aria-live="polite">
-              Showing{' '}
-              <span className="tabular font-bold" style={{ color: 'var(--ember-600)' }}>{filteredProducts.length}</span>
-              {' '}of{' '}
-              <span className="tabular font-bold" style={{ color: 'var(--text-strong)' }}>{products.length}</span>
-              {' '}products
-            </p>
-            <p
-              className="hidden items-center gap-1.5 rounded-[var(--r-pill)] border px-3 py-1.5 text-xs font-semibold sm:inline-flex"
-              style={{
-                background: 'rgba(210, 166, 79, 0.12)',
-                borderColor: 'rgba(210, 166, 79, 0.34)',
-                color: 'var(--gold-600)',
-              }}
-            >
-              <GripVertical className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-              Drag rows to reorder — customers see this order first
-            </p>
-          </div>
-        </motion.section>
+      <div className="mx-auto w-full max-w-[1550px] px-4 py-3 lg:px-8">
+        {/* Compact toolbar - result count + reorder hint */}
+        <div className="flex flex-col gap-2 py-2 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+            Showing <span className="tabular font-bold" style={{ color: 'var(--ember-600)' }}>{filteredProducts.length}</span> of <span className="tabular font-bold" style={{ color: 'var(--text-strong)' }}>{products.length}</span> products
+            {hasActiveFilters && <button type="button" onClick={clearFilters} className="ml-2 text-xs font-semibold underline" style={{ color: 'var(--ember-600)' }}>Clear filters</button>}
+          </p>
+          <p className="hidden items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold sm:inline-flex" style={{ background: 'rgba(210,166,79,0.12)', borderColor: 'rgba(210,166,79,0.3)', color: 'var(--gold-600)' }}>
+            <GripVertical className="h-3.5 w-3.5" /> Drag rows to reorder — customers see this order first
+          </p>
+        </div>
 
-        {/* Register */}
+        {/* Product list */}
         {filteredProducts.length === 0 ? (
           <EmptyState
             icon={Package}
@@ -464,21 +402,21 @@ const AllProducts = () => {
             }
           />
         ) : (
-          <section aria-label="Product register">
-            {/* Column header — desktop register only */}
+          <section aria-label="Product register" className="mt-3">
+            {/* Column header - desktop */}
             <div
-              className="mb-2 hidden items-center gap-4 rounded-[var(--r-sm)] border px-4 py-2 xl:flex"
+              className="mb-2 hidden items-center gap-3 rounded-xl border px-4 py-2.5 xl:flex"
               style={{ background: 'var(--surface-sunken)', borderColor: 'var(--hairline)' }}
               aria-hidden="true"
             >
               <div className="flex min-w-0 flex-1 items-center gap-3">
-                <span className="w-11 shrink-0" />
+                <span className="w-9 shrink-0" />
                 <span className="w-14 shrink-0" />
-                <span className="label-caps">Product</span>
+                <span className="label-caps flex-1">Product</span>
               </div>
-              <span className="label-caps w-[8.5rem] shrink-0">Pricing</span>
-              <span className="label-caps w-[11.5rem] shrink-0">Status</span>
-              <span className="label-caps w-[8.5rem] shrink-0">Order</span>
+              <span className="label-caps w-[9rem] shrink-0">Pricing</span>
+              <span className="label-caps w-[11rem] shrink-0">Status</span>
+              <span className="label-caps w-[7rem] shrink-0">Order</span>
               <span className="label-caps w-[6rem] shrink-0 text-right">Actions</span>
             </div>
 
@@ -492,7 +430,7 @@ const AllProducts = () => {
                     position={position}
                     total={sortedAll.length}
                     index={index}
-                    reduced={reduced}
+                    reduced={false}
                     isDragging={dragId === product.id}
                     isDropTarget={dragId !== product.id && dragOverId === product.id}
                     onDragStart={(e) => handleDragStart(e, product.id)}

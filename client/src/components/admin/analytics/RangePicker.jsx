@@ -22,7 +22,7 @@ const todayKey = () => {
  * fire a request for each half-typed date, and a partially typed year is a
  * request for the wrong decade.
  */
-export default function RangePicker({ range, onChange, disabled = false }) {
+export default function RangePicker({ range, onChange, disabled = false, compact = false }) {
   const [open, setOpen] = useState(false);
   const [from, setFrom] = useState(range?.from || '');
   const [to, setTo] = useState(range?.to || '');
@@ -36,6 +36,10 @@ export default function RangePicker({ range, onChange, disabled = false }) {
 
   const isCustom = Boolean(range?.custom);
   const max = todayKey();
+  /* Compact mode is the analytics-navbar variant: same behaviour, smaller
+     pills so the 54px bar keeps its title centered. */
+  const btnHeight = compact ? 32 : 40;
+  const btnPad = compact ? '0 11px' : undefined;
 
   const apply = (event) => {
     event.preventDefault();
@@ -78,7 +82,8 @@ export default function RangePicker({ range, onChange, disabled = false }) {
             aria-pressed={active}
             className="rounded-full border px-3.5 text-xs font-semibold transition-colors disabled:opacity-60"
             style={{
-              minHeight: 40,
+              minHeight: btnHeight,
+              padding: btnPad,
               borderColor: active ? 'transparent' : 'var(--hairline)',
               background: active ? 'var(--grad-ember)' : 'var(--surface-card)',
               color: active ? 'var(--text-on-dark)' : 'var(--text-body)',
@@ -97,7 +102,8 @@ export default function RangePicker({ range, onChange, disabled = false }) {
           aria-expanded={open}
           className="inline-flex items-center gap-1.5 rounded-full border px-3.5 text-xs font-semibold transition-colors disabled:opacity-60"
           style={{
-            minHeight: 40,
+            minHeight: btnHeight,
+            padding: btnPad,
             borderColor: isCustom ? 'transparent' : 'var(--hairline)',
             background: isCustom ? 'var(--grad-ember)' : 'var(--surface-card)',
             color: isCustom ? 'var(--text-on-dark)' : 'var(--text-body)',

@@ -7,12 +7,15 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "migrate:homepage": "node scripts/migrate-homepage-order.js",
     "verify:homepage": "node scripts/verify-homepage-admin.js",
-    "test:recommendations": "node scripts/test-recommendations.js"
+    "test:recommendations": "node scripts/test-recommendations.js",
+    "migrate:catalog": "node scripts/migrateCatalogToKvm.js --dry-run",
+    "migrate:catalog:apply": "node scripts/migrateCatalogToKvm.js --apply"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "cloudinary": "^2.11.0",
     "cors": "^2.8.5",
     "express": "^5.1.0",
     "firebase-admin": "^14.2.0",

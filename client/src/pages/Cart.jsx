@@ -4,6 +4,7 @@ import { Trash2, Minus, Plus, ShoppingBag, Truck, ArrowRight, PackageSearch } fr
 import { useCart } from '../context/CartContext';
 import QuantityInput from '../components/QuantityInput';
 import ImagePlaceholder from '../components/ImagePlaceholder';
+import { displayNameForCategory } from '../lib/categoryIcons';
 import EmptyState from '../components/ui/EmptyState';
 import { CornerFiligree } from '../components/ui/Ornaments';
 import { useReducedMotion } from '../hooks/useReducedMotion';
@@ -182,7 +183,7 @@ const Cart = () => {
                                 <h2 className="card-title product-name line-clamp-2" style={{ color: 'var(--text-strong)' }}>
                                   {item.name}
                                 </h2>
-                                {item.category && <p className="label-caps mt-1">{item.category}</p>}
+                                {item.category && <p className="label-caps mt-1">{displayNameForCategory(item.category)}</p>}
                               </div>
 
                               <button

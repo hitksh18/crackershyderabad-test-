@@ -1,5 +1,6 @@
 import { removeImageBackground } from './removeBackground';
 import { authFetch } from './apiClient';
+import { isLocalOnlyUrl } from './storageUrls';
 
 export async function uploadImage(file, options = {}) {
   if (!file) {
@@ -14,16 +15,25 @@ export async function uploadImage(file, options = {}) {
     uploadFile = await removeImageBackground(file, options.onProgress);
   }
 
+  const dir = options.dir || options.folder || 'products';
   const formData = new FormData();
   formData.append('image', uploadFile);
+  formData.append('dir', dir);
   formData.append('upscale', shouldUpscale ? 'true' : 'false');
   formData.append('watermark', options.watermark !== false ? 'true' : 'false');
 
   // Uploads are admin-only and verified server-side; the token proves the role.
-  const response = await authFetch('/api/upload', {
-    method: 'POST',
-    body: formData,
-  });
+  let response;
+  try {
+    response = await authFetch('/api/upload', {
+      method: 'POST',
+      body: formData,
+    });
+  } catch (e) {
+    throw new Error(
+      `Upload request failed (${e?.message || 'network error'}). Make sure the API server is running and reachable, then retry.`
+    );
+  }
 
   if (!response.ok) {
     let message = 'Upload failed';
@@ -37,5 +47,22 @@ export async function uploadImage(file, options = {}) {
   }
 
   const data = await response.json();
-  return data.url;
+  const url = data.url;
+  if (!url || typeof url !== 'string') {
+    throw new Error('Upload failed: the server returned no image URL.');
+  }
+
+  /* Homepage banners, logos and other production content need a permanent
+     public URL. The API flags its local-disk fallback explicitly, and the URL
+     shape is checked too — a local-only URL must fail loudly here rather than
+     being persisted and breaking the public site later. Pass
+     { allowLocal: true } only for throwaway/local tooling. */
+  if (options.allowLocal !== true && (data.local === true || isLocalOnlyUrl(url))) {
+    throw new Error(
+      data.warning ||
+        'Upload failed: the image was stored on local disk only (Firebase Storage unreachable). Fix Storage configuration and retry — a local-only URL cannot be used.'
+    );
+  }
+
+  return url;
 }

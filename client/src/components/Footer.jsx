@@ -6,6 +6,8 @@ import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import toast from '../utils/toast';
 import ScrollReveal from './ui/ScrollReveal';
+import { categoryDefs } from './home/homeData';
+import { readSiteSettings } from '../lib/siteSettings';
 
 const quickLinks = [
   { to: '/', label: 'Home' },
@@ -14,25 +16,28 @@ const quickLinks = [
   { to: '/track-order', label: 'Track Order' }
 ];
 
-const categories = [
-  'Rockets',
-  'Sparkles',
-  'Gift Boxes',
-  'Flower Pots',
-  'Bombs'
+/* The footer shows a shortlist of categories, but their names and product-query
+   values come from categoryDefs — the single source of truth shared with the
+   homepage — so a rename there never leaves the footer pointing at a dead
+   filter. Order follows this list, not categoryDefs. */
+const FOOTER_CATEGORY_SLUGS = [
+  'rockets',
+  'sparkles',
+  'gift-boxes',
+  'flower-pots',
+  'bombs',
+  'fancy-fireworks'
 ];
 
-const socialLinks = [
-  { href: 'https://instagram.com', label: 'Instagram', Icon: FaInstagram },
-  { href: 'https://facebook.com', label: 'Facebook', Icon: FaFacebookF },
-  { href: 'https://youtube.com', label: 'YouTube', Icon: FaYoutube }
-];
+const categories = FOOTER_CATEGORY_SLUGS.map(slug =>
+  categoryDefs.find(cat => cat.slug === slug)
+).filter(Boolean);
 
 const BOTTOM_BORDER = '1px solid rgba(210, 166, 79, 0.12)';
 
 /* Column heading — gold small-caps. */
 const FooterHeading = ({ children }) => (
-  <h3 className="label-caps mb-3" style={{ color: 'var(--gold-400)' }}>
+  <h3 className="label-caps mb-2 sm:mb-3" style={{ color: 'var(--gold-400)' }}>
     {children}
   </h3>
 );
@@ -40,7 +45,7 @@ const FooterHeading = ({ children }) => (
 const FooterLink = ({ to, children }) => (
   <Link
     to={to}
-    className="py-1.5 text-[13px] font-medium transition-colors hover:text-[color:var(--saffron-400)]"
+    className="py-1 text-[13px] font-medium transition-colors hover:text-[color:var(--saffron-400)] sm:py-1.5"
     style={{ color: '#B7AEA2', fontFamily: 'var(--font-body)' }}
   >
     {children}
@@ -52,7 +57,7 @@ const ContactRow = ({ href, external, icon: Icon, children }) => {
     <>
       <span
         aria-hidden="true"
-        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full"
+        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full sm:h-7 sm:w-7"
         style={{ background: 'rgba(195, 58, 20, 0.16)', border: '1px solid rgba(210, 166, 79, 0.22)' }}
       >
         <Icon className="h-3.5 w-3.5" style={{ color: 'var(--ember-400)' }} strokeWidth={2.2} />
@@ -61,7 +66,7 @@ const ContactRow = ({ href, external, icon: Icon, children }) => {
     </>
   );
 
-  const shared = 'flex items-center gap-3 py-1.5';
+  const shared = 'flex items-center gap-2.5 py-1 sm:gap-3 sm:py-1.5';
   const style = { fontFamily: 'var(--font-body)' };
 
   if (!href) {
@@ -84,13 +89,16 @@ const ContactRow = ({ href, external, icon: Icon, children }) => {
   );
 };
 
-const Footer = () => {
+/* `preview` ({ phone, email, address, logoUrl, instagram }) overrides the saved
+   settings so the homepage canvas can show unsaved edits live. */
+const Footer = ({ preview } = {}) => {
   const currentYear = new Date().getFullYear();
   const [footerSettings, setFooterSettings] = useState({
     phone: '+91 98765 43210',
     email: 'info@crackershyderabad.com',
     address: 'Hyderabad, Telangana'
   });
+  const [siteSettings, setSiteSettings] = useState(null);
   const [newsletterEmail, setNewsletterEmail] = useState('');
   const [newsletterError, setNewsletterError] = useState('');
 
@@ -109,7 +117,32 @@ const Footer = () => {
     fetchFooterSettings();
   }, []);
 
-  const logoUrl = footerSettings.logoUrl || '/images/website/crackerhyderabadlogo.png';
+  useEffect(() => {
+    readSiteSettings().then(s => {
+      setSiteSettings(s);
+      // Use centralized contact email if available
+      if (s.contact?.email) {
+        setFooterSettings(prev => ({ ...prev, email: s.contact.email }));
+      }
+      // Update favicon if configured
+      if (s.branding?.faviconUrl) {
+        let link = document.querySelector("link[rel*='icon']");
+        if (!link) { link = document.createElement('link'); link.rel = 'icon'; document.head.appendChild(link); }
+        link.href = s.branding.faviconUrl;
+      }
+    });
+  }, []);
+
+  const logoUrl = preview?.logoUrl || siteSettings?.branding?.logoUrl || footerSettings.logoUrl || '/images/website/crackerhyderabadlogo.png';
+  const instagramUrl = preview?.instagram ?? siteSettings?.socialLinks?.instagram ?? '';
+  const phone = preview?.phone ?? footerSettings.phone;
+  const email = preview?.email ?? footerSettings.email;
+  const address = preview?.address ?? footerSettings.address;
+  const dynamicSocialLinks = [
+    ...(instagramUrl ? [{ href: instagramUrl, label: 'Instagram', Icon: FaInstagram }] : []),
+    { href: 'https://facebook.com', label: 'Facebook', Icon: FaFacebookF },
+    { href: 'https://youtube.com', label: 'YouTube', Icon: FaYoutube }
+  ];
 
   const handleSubscribe = (e) => {
     e.preventDefault();
@@ -146,14 +179,18 @@ const Footer = () => {
         style={{ background: 'radial-gradient(62% 100% at 50% 0%, rgba(195, 58, 20, 0.22), transparent 72%)' }}
       />
 
-      <div className="shell relative py-8 lg:py-10">
+      <div className="shell relative py-4 sm:py-8 lg:py-10">
+        {/* Phones run a 2-column grid so Quick Links and Categories sit
+            side-by-side instead of stacking — brand and contact span both
+            columns. From sm up the original 2-col / 12-col layout is restored
+            untouched. */}
         <ScrollReveal
           stagger={0.06}
-          className="grid grid-cols-1 gap-x-8 gap-y-10 sm:grid-cols-2 lg:grid-cols-12 lg:gap-8"
+          className="grid grid-cols-2 gap-x-4 gap-y-5 sm:grid-cols-2 sm:gap-x-8 sm:gap-y-10 lg:grid-cols-12 lg:gap-8"
         >
           {/* Brand + newsletter + social */}
-          <ScrollReveal.Item className="lg:col-span-4">
-            <div className="mb-3 flex items-center gap-3">
+          <ScrollReveal.Item className="col-span-2 sm:col-span-1 lg:col-span-4">
+            <div className="mb-2 flex items-center gap-3 sm:mb-3">
               <img
                 src={logoUrl}
                 alt="Crackers Hyderabad Logo"
@@ -166,13 +203,13 @@ const Footer = () => {
             </div>
 
             <p
-              className="text-pretty mb-4 max-w-sm text-sm leading-relaxed"
+              className="text-pretty mb-2.5 max-w-sm text-sm leading-relaxed sm:mb-4"
               style={{ fontFamily: 'var(--font-body)', color: '#B7AEA2' }}
             >
               Premium fireworks for every celebration — safe doorstep delivery across Hyderabad.
             </p>
 
-            <div className="mb-5">
+            <div className="mb-2.5 sm:mb-5">
               <FooterHeading>Newsletter</FooterHeading>
               <form onSubmit={handleSubscribe} className="flex max-w-sm gap-2" noValidate>
                 <label htmlFor="footer-newsletter-email" className="sr-only">
@@ -186,7 +223,7 @@ const Footer = () => {
                   placeholder="Your email"
                   aria-invalid={newsletterError ? 'true' : undefined}
                   aria-describedby={newsletterError ? 'footer-newsletter-error' : undefined}
-                  className={`h-10 min-w-0 flex-1 rounded-xl px-3.5 text-sm transition-colors placeholder:text-[#A79E92] ${
+                  className={`h-11 min-w-0 flex-1 rounded-xl px-3.5 text-sm transition-colors placeholder:text-[#A79E92] sm:h-10 ${
                     newsletterError
                       ? 'border-[color:var(--crimson-600)]'
                       : 'border-[color:rgba(210,166,79,0.24)] focus:border-[color:var(--ember-500)]'
@@ -202,7 +239,7 @@ const Footer = () => {
                 <button
                   type="submit"
                   aria-label="Subscribe to newsletter"
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-white transition-transform hover:-translate-y-0.5"
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-white transition-transform hover:-translate-y-0.5 sm:h-10 sm:w-10"
                   style={{ background: 'var(--grad-ember)', boxShadow: 'var(--shadow-ember)' }}
                 >
                   <Send className="h-4 w-4" strokeWidth={2.4} aria-hidden="true" />
@@ -222,7 +259,7 @@ const Footer = () => {
             <div>
               <FooterHeading>Follow Us</FooterHeading>
               <div className="flex items-center gap-2.5">
-                {socialLinks.map(({ href, label, Icon }) => (
+                {dynamicSocialLinks.map(({ href, label, Icon }) => (
                   <a
                     key={label}
                     href={href}
@@ -246,7 +283,7 @@ const Footer = () => {
           {/* Quick links */}
           <ScrollReveal.Item className="lg:col-span-2">
             <FooterHeading>Quick Links</FooterHeading>
-            <nav aria-label="Footer quick links" className="flex flex-col">
+            <nav aria-label="Footer quick links" className="flex flex-col items-start">
               {quickLinks.map(link => (
                 <FooterLink key={link.label} to={link.to}>
                   {link.label}
@@ -258,10 +295,10 @@ const Footer = () => {
           {/* Categories */}
           <ScrollReveal.Item className="lg:col-span-3">
             <FooterHeading>Categories</FooterHeading>
-            <nav aria-label="Footer categories" className="flex flex-col">
+            <nav aria-label="Footer categories" className="flex flex-col items-start">
               {categories.map((cat) => (
-                <FooterLink key={cat} to={`/products?category=${encodeURIComponent(cat)}`}>
-                  {cat}
+                <FooterLink key={cat.slug} to={`/products?category=${encodeURIComponent(cat.link)}`}>
+                  {cat.name}
                 </FooterLink>
               ))}
               <FooterLink to="/products">View All</FooterLink>
@@ -269,16 +306,16 @@ const Footer = () => {
           </ScrollReveal.Item>
 
           {/* Contact */}
-          <ScrollReveal.Item className="lg:col-span-3">
+          <ScrollReveal.Item className="col-span-2 sm:col-span-1 lg:col-span-3">
             <FooterHeading>Contact Us</FooterHeading>
             <div className="flex flex-col">
-              <ContactRow href={`tel:${footerSettings.phone}`} icon={Phone}>
-                <span className="tabular">{footerSettings.phone}</span>
+              <ContactRow href={`tel:${phone}`} icon={Phone}>
+                <span className="tabular">{phone}</span>
               </ContactRow>
-              <ContactRow href={`mailto:${footerSettings.email}`} icon={Mail}>
-                {footerSettings.email}
+              <ContactRow href={`mailto:${email}`} icon={Mail}>
+                {email}
               </ContactRow>
-              <ContactRow icon={MapPin}>{footerSettings.address}</ContactRow>
+              <ContactRow icon={MapPin}>{address}</ContactRow>
             </div>
           </ScrollReveal.Item>
         </ScrollReveal>
@@ -286,7 +323,7 @@ const Footer = () => {
 
       {/* Bottom bar */}
       <div className="relative" style={{ background: 'rgba(0, 0, 0, 0.32)', borderTop: BOTTOM_BORDER }}>
-        <div className="shell flex flex-col items-center justify-between gap-2 py-3 sm:flex-row">
+        <div className="shell flex flex-col items-start justify-between gap-1.5 py-2.5 sm:flex-row sm:items-center sm:gap-2 sm:py-3">
           <p className="text-xs" style={{ fontFamily: 'var(--font-body)', color: '#9C9488' }}>
             © <span className="tabular">{currentYear}</span> CrackersHyderabad | All Rights Reserved
           </p>
