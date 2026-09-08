@@ -16,7 +16,7 @@
   "license": "ISC",
   "dependencies": {
     "cloudinary": "^2.11.0",
-    "cors": "^2.8.5",
+    "cors": "^2.8.6",
     "express": "^5.1.0",
     "firebase-admin": "^14.2.0",
     "multer": "^2.2.0",
