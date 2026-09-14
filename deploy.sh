@@ -14,5 +14,9 @@ if [ -d "$T/api" ]; then
   cd /root/crackers-deploy/api && npm install --omit=dev --no-audit --no-fund >/dev/null 2>&1 || true
   pm2 restart crackers-api >/dev/null || true
 fi
+if [ -d "$T/scripts" ]; then
+  rm -rf /root/crackers-deploy/scripts
+  cp -a $T/scripts /root/crackers-deploy/scripts
+fi
 rm -rf $T /root/deploy-latest.tar.gz
 echo DEPLOY-DONE
