@@ -35,6 +35,7 @@ jobs:
           cp -a client/dist/. package/dist/
           cp -a api package/api
           cp -a scripts package/scripts
+          cp -a deploy.sh package/deploy.sh
 
       - name: Upload and deploy over HTTPS
         env:

@@ -9,6 +9,10 @@ rm -rf /var/www/crackershyderabad.old
 mv /var/www/crackershyderabad /var/www/crackershyderabad.old
 mv $T/dist /var/www/crackershyderabad
 chown -R www-data:www-data /var/www/crackershyderabad
+if [ -f "$T/deploy.sh" ]; then
+  cp -a "$T/deploy.sh" /root/crackers-deploy/deploy.sh
+  chmod 755 /root/crackers-deploy/deploy.sh
+fi
 if [ -d "$T/api" ]; then
   cp -a $T/api/. /root/crackers-deploy/api/
   cd /root/crackers-deploy/api && npm install --omit=dev --no-audit --no-fund >/dev/null 2>&1 || true
