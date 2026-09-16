@@ -34,6 +34,7 @@ jobs:
           mkdir -p package/dist
           cp -a client/dist/. package/dist/
           cp -a api package/api
+          cp -a scripts package/scripts
 
       - name: Upload and deploy over HTTPS
         env:
