@@ -61,6 +61,8 @@ coverage/
 
 # Uploaded image artifacts (API stores originals in Firebase Storage)
 api/public/uploads/
+# Local KVM media root (uploaded image artifacts for local testing)
+api/media/
 
 # Misc
 .cache/

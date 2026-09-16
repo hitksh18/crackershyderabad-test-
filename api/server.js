@@ -105,6 +105,11 @@ app.use(securityHeaders);
 app.use(cors(corsOptions));
 app.use(express.json({ limit: '256kb' }));
 
+// Local media static serving — mirrors production Nginx /uploads → /var/www/crackershyderabad-media
+// Production Nginx handles this, but Node must serve it for local Windows testing where Nginx is absent.
+// This makes http://localhost:3001/uploads/<dir>/<file> behave like https://crackershyderabad.com/uploads/<dir>/<file>
+app.use('/uploads', express.static(getMediaRoot(), { maxAge: '1d', etag: true, lastModified: true }));
+
 /* ---------------------------------------------------------------------------
    Rate limits
    --------------------------------------------------------------------------- */
@@ -307,9 +312,12 @@ app.post(
     }
 
     try {
-      const { publicUrl } = await storeMedia(buffer, dir, finalName);
-      console.log(`[upload] ${dir}/${finalName} → ${publicUrl} (${buffer.length} bytes)`);
-      return res.json({ url: publicUrl, publicUrl, dir, filename: finalName });
+      const { publicUrl, absolutePath, filename: storedFilename } = await storeMedia(buffer, dir, finalName);
+      const destDir = path.join(getMediaRoot(), dir);
+      console.log(`[upload] dir=${dir} requestedDir=${requestedDir} mimetype=${req.file.mimetype} originalName=${req.file.originalname} size=${buffer.length} upscale=${shouldUpscale} watermark=${shouldWatermark}`);
+      console.log(`[upload] generatedFilename=${finalName} storedFilename=${storedFilename} destDir=${destDir} absolutePath=${absolutePath}`);
+      console.log(`[upload] ${dir}/${storedFilename} → ${publicUrl}`);
+      return res.json({ url: publicUrl, publicUrl, dir, filename: storedFilename, absolutePath });
     } catch (error) {
       console.error('[upload] KVM store failed:', error.message);
       return res.status(500).json({ error: `Image upload failed: ${error.message}` });
@@ -347,14 +355,12 @@ app.get('/api/admin/media-health', adminLimiter, requireAdmin, async (req, res) 
     }
     checks.push({ dir, path: full, ok, error });
   }
-  const probeFile = `health_${Date.now()}.txt`;
+  const probeFile = `health_${Date.now()}.png`;
   let probeOk = false;
   try {
-    const { publicUrl } = await storeMedia(Buffer.from('health'), 'general', probeFile);
-    const parsed = parsePublicUrl(publicUrl);
-    const full = path.join(root, ...parsed.dir.split('/'), parsed.filename);
-    await fs.promises.access(full, fs.constants.F_OK);
-    await fs.promises.unlink(full);
+    const { absolutePath } = await storeMedia(Buffer.from('health'), 'general', probeFile);
+    await fs.promises.access(absolutePath, fs.constants.F_OK);
+    await fs.promises.unlink(absolutePath);
     probeOk = true;
   } catch (e) {
     console.warn('[media-health] probe failed:', e.message);
@@ -542,11 +548,9 @@ app.get('/api/admin/firebase-health', adminLimiter, requireAdmin, async (req, re
       try {
         await fs.promises.mkdir(path.join(root, 'products'), { recursive: true });
         await fs.promises.access(root, fs.constants.W_OK);
-        const probe = `health_${Date.now()}.txt`;
-        const { publicUrl } = await storeMedia(Buffer.from('health'), 'general', probe);
-        const parsed = parsePublicUrl(publicUrl);
-        const full = path.join(root, ...parsed.dir.split('/'), parsed.filename);
-        await fs.promises.unlink(full).catch(() => {});
+        const probe = `health_${Date.now()}.png`;
+        const { absolutePath } = await storeMedia(Buffer.from('health'), 'general', probe);
+        await fs.promises.unlink(absolutePath).catch(() => {});
         return { ok: true, root, base, mediaOk: true };
       } catch (e) {
         console.error('[health] KVM media check failed:', e.message);
@@ -572,15 +576,12 @@ app.get('/api/admin/firebase-health', adminLimiter, requireAdmin, async (req, re
 
 /* KVM probe — definitive "can this server write to KVM" check */
 app.post('/api/admin/storage-probe', adminLimiter, requireAdmin, async (req, res) => {
-  const root = getMediaRoot();
   const base = getPublicBase();
   try {
-    const name = `kvm-probe-${Date.now()}.txt`;
-    const { publicUrl } = await storeMedia(Buffer.from('kvm-probe'), 'general', name);
-    const parsed = parsePublicUrl(publicUrl);
-    const full = path.join(root, ...parsed.dir.split('/'), parsed.filename);
-    const exists = fs.existsSync(full);
-    await fs.promises.unlink(full).catch(() => {});
+    const name = `kvm-probe-${Date.now()}.png`;
+    const { publicUrl, absolutePath } = await storeMedia(Buffer.from('kvm-probe'), 'general', name);
+    const exists = fs.existsSync(absolutePath);
+    await fs.promises.unlink(absolutePath).catch(() => {});
     if (!exists) {
       return res.status(500).json({ ok: false, base, error: 'Probe object missing right after write' });
     }

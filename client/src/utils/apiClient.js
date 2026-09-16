@@ -7,6 +7,15 @@ import { auth } from '../firebase';
  * Client-side route guards decide what a user *sees*; this is what decides what
  * they can actually *do*.
  */
+const API_BASE = (import.meta.env.VITE_BACKEND_API_URL || '').replace(/\/+$/, '');
+
+export function apiUrl(path) {
+  if (!path) return path;
+  if (/^https?:\/\//i.test(path)) return path;
+  if (!API_BASE) return path;
+  return `${API_BASE}${path.startsWith('/') ? path : `/${path}`}`;
+}
+
 export async function authFetch(url, options = {}) {
   const user = auth.currentUser;
 
@@ -19,7 +28,8 @@ export async function authFetch(url, options = {}) {
   const headers = new Headers(options.headers || {});
   headers.set('Authorization', `Bearer ${token}`);
 
-  let res = await fetch(url, { ...options, headers });
+  const finalUrl = apiUrl(url);
+  let res = await fetch(finalUrl, { ...options, headers });
 
   // If token is stale (e.g., just disabled/enabled), retry once with a forced refresh
   if (res.status === 401) {
@@ -27,7 +37,7 @@ export async function authFetch(url, options = {}) {
       const freshToken = await user.getIdToken(true);
       const retryHeaders = new Headers(options.headers || {});
       retryHeaders.set('Authorization', `Bearer ${freshToken}`);
-      const retryRes = await fetch(url, { ...options, headers: retryHeaders });
+      const retryRes = await fetch(apiUrl(url), { ...options, headers: retryHeaders });
       // Only use retry if it succeeded or at least not 401 — otherwise surface original 401
       if (retryRes.status !== 401) return retryRes;
       // Both 401 — return retry (still 401) for consistent handling
