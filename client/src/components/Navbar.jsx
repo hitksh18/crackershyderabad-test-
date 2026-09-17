@@ -186,12 +186,12 @@ const Navbar = () => {
     <>
       <nav
         ref={navRef}
-        className="glass-nav sticky top-0 z-nav"
+        className={`glass-nav sticky top-0 z-nav${pathname === '/' ? ' home-nav' : ''}`}
       >
         <span
           aria-hidden="true"
           className="pointer-events-none absolute inset-x-0 bottom-0 h-px"
-          style={{ background: 'var(--grad-gold)', opacity: 0.55 }}
+          style={{ background: pathname === '/' ? 'linear-gradient(90deg, transparent, rgba(210,166,79,0.22), transparent)' : 'var(--grad-gold)', opacity: pathname === '/' ? 1 : 0.55 }}
         />
 
         <div className="shell relative py-2 lg:py-3">

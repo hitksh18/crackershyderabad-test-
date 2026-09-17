@@ -90,11 +90,13 @@ const BannerStrip = ({ messages, copies, viewportRef, trackRef, trackDuration })
 
   return (
     <div
-      className="relative isolate overflow-hidden"
+      className="relative isolate overflow-hidden w-full max-w-full"
       style={{
         background:
           'linear-gradient(96deg, var(--maroon-900) 0%, var(--maroon-700) 36%, var(--maroon-600) 64%, var(--ember-600) 100%)',
         fontFamily: 'var(--font-body)',
+        maxWidth: '100%',
+        overflow: 'clip',
       }}
     >
       <div
@@ -108,8 +110,8 @@ const BannerStrip = ({ messages, copies, viewportRef, trackRef, trackDuration })
         style={{ background: 'radial-gradient(58% 150% at 14% 0%, rgba(247, 174, 44, 0.24), transparent 62%)' }}
       />
 
-      <div className="relative flex min-h-9 items-center py-1.5 sm:py-2" aria-hidden="true">
-        <div ref={viewportRef} className="marquee-viewport w-full overflow-hidden">
+      <div className="relative flex min-h-9 w-full max-w-full items-center overflow-hidden py-1.5 sm:py-2" aria-hidden="true" style={{ maxWidth: '100%', overflow: 'clip' }}>
+        <div ref={viewportRef} className="marquee-viewport w-full max-w-full overflow-hidden" style={{ maxWidth: '100%', overflow: 'clip' }}>
           <div
             ref={trackRef}
             className="marquee-track flex w-max items-center"
@@ -233,18 +235,53 @@ const TopBanner = ({ preview } = {}) => {
 
 const TopBannerBody = ({ enabled, messages }) => {
   const { viewportRef, trackRef, copies, trackDuration } = useMarqueeCopies(messages.length);
+  const bannerRef = useRef(null);
 
-  if (!enabled) return null;
-  if (messages.length === 0) return null;
+  /* Publish measured height for hero viewport calc (header stack). */
+  useEffect(() => {
+    const el = bannerRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') {
+      document.documentElement.style.setProperty('--top-banner-h', '0px');
+      return undefined;
+    }
+    const root = document.documentElement;
+    const publish = () => {
+      const h = enabled && messages.length > 0 ? Math.round(el.getBoundingClientRect().height) : 0;
+      root.style.setProperty('--top-banner-h', `${h}px`);
+    };
+    publish();
+    const ro = new ResizeObserver(publish);
+    ro.observe(el);
+    return () => {
+      ro.disconnect();
+      root.style.setProperty('--top-banner-h', '0px');
+    };
+  }, [enabled, messages.length]);
+
+  if (!enabled) {
+    // Ensure header variable cleared when disabled
+    if (typeof document !== 'undefined') {
+      document.documentElement.style.setProperty('--top-banner-h', '0px');
+    }
+    return null;
+  }
+  if (messages.length === 0) {
+    if (typeof document !== 'undefined') {
+      document.documentElement.style.setProperty('--top-banner-h', '0px');
+    }
+    return null;
+  }
 
   return (
-    <BannerStrip
-      messages={messages}
-      copies={copies}
-      viewportRef={viewportRef}
-      trackRef={trackRef}
-      trackDuration={trackDuration}
-    />
+    <div ref={bannerRef}>
+      <BannerStrip
+        messages={messages}
+        copies={copies}
+        viewportRef={viewportRef}
+        trackRef={trackRef}
+        trackDuration={trackDuration}
+      />
+    </div>
   );
 };
 

@@ -59,7 +59,8 @@ hostinger-deploy.zip
 # Testing
 coverage/
 
-# Uploaded image artifacts (API stores originals in Firebase Storage)
+# Uploaded image artifacts. Persistent production media lives on the KVM,
+# never in this repository or on a development machine.
 api/public/uploads/
 # Local KVM media root (uploaded image artifacts for local testing)
 api/media/
@@ -82,7 +83,6 @@ client/.scratch/
 client/invoice-preview.html
 client/font-proof.html
 
-.vercel
 # Anchored to the repo root: only ignore root-level .env* files, never
 # client/.env (public Firebase web config, committed on purpose).
 /.env*

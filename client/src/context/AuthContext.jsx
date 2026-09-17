@@ -8,8 +8,24 @@ import {
   linkWithPopup,
 } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { auth, db } from '../firebase';
+import { auth, db, isFirebaseConfigValid, firebaseConfigError } from '../firebase';
 import toast from '../utils/toast';
+
+const DEV = import.meta.env.DEV;
+const log = (...args) => { if (DEV) console.log(...args); };
+const logError = (...args) => { if (DEV) console.error(...args); else console.error(...args); };
+
+// Firestore getDoc can hang if the SDK is offline / rules misconfigured /
+// network blocked. Wrap with a real timeout so the caller never waits forever.
+// This does NOT hide the error — it turns a silent hang into a catchable
+// rejection that the auth lifecycle handles as a proper error state.
+function withTimeout(promise, ms, label) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
 
 const AuthContext = createContext();
 
@@ -68,6 +84,7 @@ export const AuthProvider = ({ children }) => {
 
   const fetchUserRole = useCallback(async (currentUser) => {
     if (!currentUser) {
+      log('[AUTH] No user — clearing role');
       setUserRole(null);
       setRoleError(false);
       setIsAdmin(false);
@@ -79,11 +96,30 @@ export const AuthProvider = ({ children }) => {
       return;
     }
 
+    if (!isFirebaseConfigValid) {
+      logError('[AUTH ERROR] Cannot fetch role — Firebase config invalid:', firebaseConfigError);
+      setRoleError(true);
+      setUserRole(null);
+      setIsAdmin(false);
+      setIsSales(false);
+      setIsBilling(false);
+      setIsPacker(false);
+      setIsMod(false);
+      setIsStaff(false);
+      return null;
+    }
+
+    log('[AUTH] Checking admin access for', currentUser.uid);
     try {
-      const roleDoc = await getDoc(doc(db, 'roles', currentUser.uid));
+      const roleDoc = await withTimeout(
+        getDoc(doc(db, 'roles', currentUser.uid)),
+        10000,
+        'roles lookup'
+      );
 
       if (roleDoc.exists()) {
         const role = roleDoc.data().role;
+        log('[AUTH] Admin access result:', role);
         setRoleError(false);
         setUserRole(role);
         setIsAdmin(role === 'admin');
@@ -94,6 +130,7 @@ export const AuthProvider = ({ children }) => {
         setIsStaff(['admin', 'sales', 'billing', 'packer', 'mod'].includes(role));
         return role;
       } else {
+        log('[AUTH] Admin access result: customer (no role doc)');
         setRoleError(false);
         setUserRole('customer');
         setIsAdmin(false);
@@ -105,7 +142,7 @@ export const AuthProvider = ({ children }) => {
         return 'customer';
       }
     } catch (error) {
-      console.error('Error fetching role:', error);
+      logError('[AUTH ERROR] roles lookup failed:', error?.message || error, error?.code || '');
       setRoleError(true);
       setUserRole(null);
       setIsAdmin(false);
@@ -119,38 +156,102 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const refreshRole = useCallback(async () => {
-    if (user) {
-      await fetchUserRole(user);
-    }
+    if (!user) return;
+    log('[AUTH] Retrying admin access check');
+    setRoleError(false);
+    await fetchUserRole(user);
+    log('[AUTH] Retry complete');
   }, [user, fetchUserRole]);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      setUser(currentUser);
-      // Identity is settled here. The role lookup below is a separate question
-      // and must not hold back anything that only needed to know who this is.
-      setAuthReady(true);
+    log('[AUTH] Initializing — waiting for auth state');
 
-      try {
-        if (currentUser) {
-          await fetchUserRole(currentUser);
-        } else {
-          setUserRole(null);
-          setIsAdmin(false);
-          setIsSales(false);
-          setIsBilling(false);
-          setIsPacker(false);
-          setIsMod(false);
-          setIsStaff(false);
-        }
-      } finally {
-        // Ensure loading clears even if role lookup genuinely fails (CASE C).
-        // Do NOT hide roleError — the UI keeps its retry state.
+    if (!isFirebaseConfigValid) {
+      logError('[AUTH ERROR] Firebase misconfigured — aborting auth listener:', firebaseConfigError);
+      setRoleError(true);
+      setAuthReady(true);
+      setLoading(false);
+      return undefined;
+    }
+
+    let fired = false;
+    let cancelled = false;
+
+    // Safety net: if the SDK never calls back (e.g., blocked script, bad
+    // config, extension interference), surface a real error instead of an
+    // infinite spinner. This is NOT an arbitrary hide — it logs the exact
+    // cause and forces a recoverable error state with "Try Again".
+    const watchdog = setTimeout(() => {
+      if (!fired && !cancelled) {
+        logError('[AUTH ERROR] Auth state listener did not fire within 12s — check Firebase config, network, and browser extensions');
+        setRoleError(true);
+        setAuthReady(true);
         setLoading(false);
       }
-    });
+    }, 12000);
 
-    return unsubscribe;
+    let unsubscribe = () => {};
+
+    try {
+      unsubscribe = onAuthStateChanged(
+        auth,
+        async (currentUser) => {
+          fired = true;
+          clearTimeout(watchdog);
+          if (cancelled) return;
+          log('[AUTH] Auth state changed — user:', currentUser ? currentUser.uid : 'null');
+          setUser(currentUser);
+          setAuthReady(true);
+
+          try {
+            if (currentUser) {
+              log('[AUTH] User detected — fetching role');
+              await fetchUserRole(currentUser);
+            } else {
+              log('[AUTH] No user — redirect will handle');
+              setUserRole(null);
+              setRoleError(false);
+              setIsAdmin(false);
+              setIsSales(false);
+              setIsBilling(false);
+              setIsPacker(false);
+              setIsMod(false);
+              setIsStaff(false);
+            }
+          } catch (e) {
+            logError('[AUTH ERROR] Unexpected error in auth handler:', e?.message || e);
+            setRoleError(true);
+          } finally {
+            if (!cancelled) {
+              log('[AUTH] Loading complete');
+              setLoading(false);
+            }
+          }
+        },
+        (error) => {
+          fired = true;
+          clearTimeout(watchdog);
+          logError('[AUTH ERROR] onAuthStateChanged error:', error?.message || error, error?.code || '');
+          if (!cancelled) {
+            setRoleError(true);
+            setAuthReady(true);
+            setLoading(false);
+          }
+        }
+      );
+    } catch (e) {
+      clearTimeout(watchdog);
+      logError('[AUTH ERROR] Failed to attach auth listener:', e?.message || e);
+      setRoleError(true);
+      setAuthReady(true);
+      setLoading(false);
+    }
+
+    return () => {
+      cancelled = true;
+      clearTimeout(watchdog);
+      try { unsubscribe(); } catch { /* ignore */ }
+    };
   }, [fetchUserRole]);
 
   const loginWithGoogle = async () => {

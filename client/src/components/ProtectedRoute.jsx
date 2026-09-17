@@ -1,15 +1,15 @@
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Diya } from './ui/Ornaments';
 
 /**
  * Route guard.
  *
  * `adminOnly` / `adminOrSales` / `staffOnly` are the original coarse flags and
  * behave exactly as before. `allowRoles` is the explicit form: pass the exact
- * roles permitted on the route. Prefer it for anything beyond "admins only" —
- * it keeps the route and the navigation menu describing the same rule instead
- * of drifting apart.
+ * roles permitted on the route.
+ *
+ * Loading and error UI are premium dark surfaces (auth-loader) but the
+ * authorization logic itself is unchanged.
  */
 const ProtectedRoute = ({
   children,
@@ -27,24 +27,48 @@ const ProtectedRoute = ({
         role="status"
         aria-live="polite"
         aria-busy="true"
-        className="flex min-h-[70vh] flex-col items-center justify-center gap-6 px-6 text-center"
+        aria-label="Checking your access"
+        className="auth-loader"
       >
-        <Diya className="h-10 w-16" />
-        <div className="space-y-2">
-          <p className="card-title" style={{ color: 'var(--text-strong)' }}>
-            Checking your access
-          </p>
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-            One moment please.
-          </p>
+        {/* subtle warm haze behind logo — extremely low opacity */}
+        <div aria-hidden="true" className="auth-loader__glow" />
+        <span aria-hidden="true" className="auth-loader__speck" style={{ left: '30%', top: '28%' }} />
+        <span aria-hidden="true" className="auth-loader__speck" style={{ right: '26%', bottom: '32%', opacity: 0.2 }} />
+
+        <div className="auth-loader__inner">
+          {/* Brand mark — uses the exact project logo asset */}
+          <div className="auth-loader__brand" aria-hidden="true">
+            <span className="auth-loader__halo" />
+            <span className="auth-loader__ring" />
+            <img
+              src="/images/website/nav-logo.png"
+              alt=""
+              width={84}
+              height={84}
+              decoding="async"
+              fetchPriority="high"
+              className="auth-loader__logo"
+            />
+          </div>
+
+          <div className="auth-loader__copy">
+            <p className="auth-loader__title">Checking your access</p>
+            <p className="auth-loader__subtitle">
+              <span>One moment please</span>
+              <span className="auth-loader__dots" aria-hidden="true">
+                <span>.</span>
+                <span>.</span>
+                <span>.</span>
+              </span>
+            </p>
+          </div>
+
+          <div className="auth-loader__track" aria-hidden="true">
+            <span className="auth-loader__shimmer" />
+          </div>
+
+          <span className="sr-only">Verifying your session — please wait</span>
         </div>
-        <span
-          aria-hidden="true"
-          className="h-1 w-40 overflow-hidden rounded-full"
-          style={{ background: 'var(--surface-sunken)' }}
-        >
-          <span className="skeleton block h-full w-full" />
-        </span>
       </div>
     );
   }
@@ -56,21 +80,47 @@ const ProtectedRoute = ({
   if (roleError && !userRole) {
     return (
       <div
-        role="status"
-        className="flex min-h-[70vh] flex-col items-center justify-center gap-6 px-6 text-center"
+        role="alert"
+        aria-live="assertive"
+        className="auth-loader auth-loader--error"
       >
-        <Diya className="h-10 w-16" />
-        <div className="space-y-2">
-          <p className="card-title" style={{ color: 'var(--text-strong)' }}>
-            Could not verify your access
-          </p>
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-            We had trouble reaching the server. Your access could not be confirmed.
+        <div aria-hidden="true" className="auth-loader__glow" />
+        <div className="auth-loader__inner">
+          <div className="auth-loader__brand" aria-hidden="true">
+            <span className="auth-loader__halo" />
+            <img
+              src="/images/website/nav-logo.png"
+              alt=""
+              width={84}
+              height={84}
+              decoding="async"
+              className="auth-loader__logo"
+            />
+          </div>
+
+          <div className="auth-loader__copy">
+            <p className="auth-loader__title">Unable to verify access</p>
+            <p
+              className="auth-loader__subtitle"
+              style={{ maxWidth: '30ch', textAlign: 'center', lineHeight: 1.6 }}
+            >
+              We had trouble reaching the server. Please try again.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={refreshRole}
+            className="btn-primary"
+            style={{ minWidth: 148, marginTop: 4 }}
+          >
+            Try Again
+          </button>
+
+          <p className="auth-loader__foot" aria-hidden="true">
+            Crackers Hyderabad
           </p>
         </div>
-        <button type="button" onClick={refreshRole} className="btn-primary">
-          Try again
-        </button>
       </div>
     );
   }

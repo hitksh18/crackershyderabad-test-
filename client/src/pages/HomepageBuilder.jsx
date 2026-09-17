@@ -1457,7 +1457,13 @@ export default function HomepageBuilder() {
               }
               if (mode === 'card') {
                 const cards = [...(d.homepage.promoCards || [])];
-                cards[index] = { ...defaultPromoCard(index), ...(cards[index] || {}), ...saved };
+                const next = { ...defaultPromoCard(index), ...(cards[index] || {}), ...saved };
+                next.imageDesktop = next.imageDesktop || next.image || '';
+                next.image = next.imageDesktop || next.image;
+                cards[index] = next;
+                if (import.meta.env.DEV) {
+                  console.log('[CANVAS PROMO] draft updated', { slot: index, desktop: next.imageDesktop, mobile: next.imageMobile, enabled: next.enabled, fit: next.fit });
+                }
                 return { ...d, homepage: { ...d.homepage, promoCards: cards } };
               }
               if (mode === 'secondary') {

@@ -30,10 +30,6 @@ function getMediaRoot() {
   if (process.env.MEDIA_ROOT) return process.env.MEDIA_ROOT;
   if (process.env.KVM_MEDIA_ROOT) return process.env.KVM_MEDIA_ROOT;
   // On Windows dev, prod path does not exist — use local folder under api/media
-  if (process.platform === 'win32') {
-    const local = path.join(__dirname, '..', 'media');
-    return local;
-  }
   return DEFAULT_MEDIA_ROOT;
 }
 
@@ -105,6 +101,9 @@ function uniqueFilePath(dirFull, filename) {
 }
 
 async function storeMedia(buffer, dir, filename, contentType) {
+  if (process.env.NODE_ENV !== 'production') {
+    throw new Error('Local media persistence is disabled. Use the KVM API for uploads during development.');
+  }
   const normalized = normalizeDir(dir);
   const root = getMediaRoot();
   const dirFull = path.join(root, ...normalized.split('/'));

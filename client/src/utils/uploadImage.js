@@ -53,14 +53,14 @@ export async function uploadImage(file, options = {}) {
   }
 
   /* Homepage banners, logos and other production content need a permanent
-     public URL. The API flags its local-disk fallback explicitly, and the URL
-     shape is checked too — a local-only URL must fail loudly here rather than
-     being persisted and breaking the public site later. Pass
-     { allowLocal: true } only for throwaway/local tooling. */
+     public URL on the Hostinger KVM server. A blob:, data:, localhost or
+     root-relative URL must fail loudly here rather than being persisted and
+     breaking the public site later. Pass { allowLocal: true } only for
+     throwaway/local tooling. */
   if (options.allowLocal !== true && (data.local === true || isLocalOnlyUrl(url))) {
     throw new Error(
       data.warning ||
-        'Upload failed: the image was stored on local disk only (Firebase Storage unreachable). Fix Storage configuration and retry — a local-only URL cannot be used.'
+        'Upload failed: the image was not stored to permanent KVM media. Retry — a local-only URL cannot be used here.'
     );
   }
 

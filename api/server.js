@@ -39,7 +39,7 @@ const {
 const { createOrder, createPosOrder, trackOrder, consumeNotifyToken, isValidEmail } = require('./lib/orders');
 const { handleReverseGeocode, handleSearchPlaces, handleGeocodeConfig } = require('./lib/geocode');
 
-try {
+if (process.env.NODE_ENV === 'production') try {
   const envPath = path.join(__dirname, '..', '.env');
   if (fs.existsSync(envPath)) {
     process.loadEnvFile(envPath);
@@ -317,7 +317,7 @@ app.post(
       console.log(`[upload] dir=${dir} requestedDir=${requestedDir} mimetype=${req.file.mimetype} originalName=${req.file.originalname} size=${buffer.length} upscale=${shouldUpscale} watermark=${shouldWatermark}`);
       console.log(`[upload] generatedFilename=${finalName} storedFilename=${storedFilename} destDir=${destDir} absolutePath=${absolutePath}`);
       console.log(`[upload] ${dir}/${storedFilename} → ${publicUrl}`);
-      return res.json({ url: publicUrl, publicUrl, dir, filename: storedFilename, absolutePath });
+      return res.json({ url: publicUrl, publicUrl, dir, filename: storedFilename });
     } catch (error) {
       console.error('[upload] KVM store failed:', error.message);
       return res.status(500).json({ error: `Image upload failed: ${error.message}` });
@@ -1103,17 +1103,15 @@ app.use((err, req, res, next) => {
   return next();
 });
 
-// Local development only. On Vercel the platform imports this app and mounts it
 // as a serverless function via api/index.js — binding a port there would error.
-if (process.env.VERCEL !== '1') {
-  const PORT = process.env.API_PORT || 3001;
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Admin API server running on port ${PORT}`);
-    console.log(`CORS allow-list: ${ALLOWED_ORIGINS.join(', ')}`);
-    if (!firebaseInitialized) {
-      console.log('Warning: Firebase Admin SDK not initialized. Add FIREBASE_SERVICE_ACCOUNT_KEY secret.');
-    }
-  });
-}
+// Standard Node entry point: process managers such as PM2 run this file.
+const PORT = Number(process.env.PORT || process.env.API_PORT || 3001);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Admin API server running on port ${PORT}`);
+  console.log(`CORS allow-list: ${ALLOWED_ORIGINS.join(', ')}`);
+  if (!firebaseInitialized) {
+    console.log('Warning: Firebase Admin SDK not initialized. Add FIREBASE_SERVICE_ACCOUNT_KEY secret.');
+  }
+});
 
 module.exports = app;

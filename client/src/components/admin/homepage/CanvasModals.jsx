@@ -119,7 +119,8 @@ function ImageSlot({ label, url, uploading, onPick, hint }) {
  * small hero cards), 'secondary' (the independent strip below the hero),
  * 'product' (a banner bound to one catalogue product) or 'promo'
  * (promotionalBanners collection rail).
- * Uploads go to Firebase Storage; only the URL is stored in Firestore.
+ * Uploads go to Hostinger KVM media storage (/api/upload); only the permanent
+ * public URL (https://crackershyderabad.com/uploads/...) is stored in Firestore.
  */
 export function BannerModal({ mode = 'hero', title, initial, products, onSave, onClose }) {
   const base = mode === 'hero' ? EMPTY_HERO
@@ -135,13 +136,21 @@ export function BannerModal({ mode = 'hero', title, initial, products, onSave, o
 
   const pick = async (field, file) => {
     const dir = DIR_FOR_MODE[mode] || 'general';
+    if (import.meta.env.DEV && mode === 'card') {
+      console.log('[CANVAS PROMO] upload started', { field, dir, name: file?.name, size: file?.size });
+    }
     const url = await uploadSlot(file, setUploading, setError, dir);
     if (url) {
+      if (import.meta.env.DEV && mode === 'card') {
+        console.log('[CANVAS PROMO] upload response permanent URL', { field, url });
+      }
       set({ [field]: url });
       if (field === 'imageDesktop' || field === 'image' || field === 'imageUrl') {
         setRatio(null);
         probeRatio(url).then(setRatio);
       }
+    } else if (import.meta.env.DEV && mode === 'card') {
+      console.warn('[CANVAS PROMO] upload failed — card state NOT updated');
     }
   };
 
@@ -161,7 +170,18 @@ export function BannerModal({ mode = 'hero', title, initial, products, onSave, o
       setError(mode === 'promo' ? 'Upload a banner image first.' : 'Upload a desktop image first.');
       return;
     }
-    onSave(form);
+    /* Promo cards store the desktop image under `imageDesktop` (the field the
+       storefront renders) and mirror `image` for legacy readers. Sync both so
+       a stale desktop URL can never shadow a freshly uploaded image. */
+    const payload = { ...form };
+    if (mode === 'card') {
+      payload.imageDesktop = payload.imageDesktop || payload.image || '';
+      payload.image = payload.imageDesktop || payload.image;
+      if (import.meta.env.DEV) {
+        console.log('[CANVAS PROMO] Firestore save payload', { desktop: payload.imageDesktop, mobile: payload.imageMobile, alt: payload.alt, enabled: payload.enabled, fit: payload.fit });
+      }
+    }
+    onSave(payload);
   };
 
   const offRatio = ratio && Math.abs(ratio.ratio - 16 / 9) / (16 / 9) > 0.15;
@@ -191,7 +211,7 @@ export function BannerModal({ mode = 'hero', title, initial, products, onSave, o
           </>
         ) : (
           <>
-            <ImageSlot label="Desktop image" url={form.imageDesktop || form.image} uploading={uploading} onPick={(f) => pick(mode === 'card' ? 'image' : 'imageDesktop', f)} hint={mode === 'hero' ? 'Wide creative, e.g. 1600 × 900.' : undefined} />
+            <ImageSlot label="Desktop image" url={form.imageDesktop || form.image} uploading={uploading} onPick={(f) => pick('imageDesktop', f)} hint={mode === 'hero' ? 'Wide creative, e.g. 1600 × 900.' : undefined} />
             <ImageSlot
               label="Mobile image (optional)"
               url={form.imageMobile}
@@ -298,7 +318,7 @@ export function BannerModal({ mode = 'hero', title, initial, products, onSave, o
         {error && (
           <>
             <p className="cv-error">{error}</p>
-            <p className="cv-note">Uploads go through the API server (/api/upload). If this keeps failing, make sure it is running alongside the editor. If the error says the Storage bucket does not exist, create it once in Firebase Console → Storage → Get started, then retry — otherwise try a smaller JPG, PNG or WebP image.</p>
+            <p className="cv-note">Uploads go through the API server (/api/upload) with your admin session and are stored on the Hostinger KVM server beneath /uploads/canvas/…. If this keeps failing, make sure you are signed in as an administrator and retry with a JPG, PNG or WebP under 6 MB.</p>
           </>
         )}
 

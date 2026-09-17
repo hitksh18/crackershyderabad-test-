@@ -180,6 +180,8 @@ html {
   scroll-behavior: smooth;
   background: var(--surface-page);
   -webkit-text-size-adjust: 100%;
+  max-width: 100%;
+  overflow-x: clip;
 }
 
 html.dark {
@@ -195,8 +197,9 @@ body {
   background: transparent;
   color: var(--text-body);
   position: relative;
-  /* Nothing may push the page sideways. */
-  overflow-x: hidden;
+  max-width: 100%;
+  /* Clip any stray horizontal overflow without hiding root cause — root fix is per-component max-width/overflow */
+  overflow-x: clip;
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -272,6 +275,27 @@ body::after {
 .dark ::-webkit-scrollbar-thumb {
   background: linear-gradient(180deg, rgba(148, 37, 31, 0.9), rgba(58, 11, 12, 0.95));
   border-color: rgba(237, 231, 223, 0.05);
+}
+
+/* Public homepage only (.route-home is toggled on <html> by Home.jsx while
+   the homepage is mounted, and removed on unmount): hide the visible page
+   scrollbar while keeping normal document scrolling.
+   - Scoped to html/body ONLY, so admin panels, Canvas, modals, dropdowns,
+     rails and every other internal scroll container keep their scrollbars.
+   - overflow-y stays auto (never hidden/clip): wheel, trackpad, touch and
+     keyboard scrolling all keep working on the document scroller.
+   - overflow-x is intentionally untouched here. */
+.route-home,
+.route-home body {
+  overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.route-home::-webkit-scrollbar,
+.route-home body::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 /* Focus is never removed — only restyled. */
@@ -841,8 +865,10 @@ img {
      ceiling is kept only for readability on very wide monitors. */
   .shell {
     width: min(92vw, 1800px);
+    max-width: 100%;
     margin-inline: auto;
     padding-inline: var(--gutter);
+    box-sizing: border-box;
   }
 
   /* Narrow pages (forms, account, single-column checkouts) share the same
@@ -850,16 +876,20 @@ img {
      centred. Still scales with the viewport rather than a rigid 896px box. */
   .shell-narrow {
     width: min(92vw, 1000px);
+    max-width: 100%;
     margin-inline: auto;
     padding-inline: var(--gutter);
+    box-sizing: border-box;
   }
 
   /* Homepage shell — the same fluid width system as .shell, with slightly
      more generous side padding so hero/feature sections breathe. */
   .shell-wide {
     width: min(92vw, 1800px);
+    max-width: 100%;
     margin-inline: auto;
     padding-inline: clamp(1.25rem, 4vw, 2.5rem);
+    box-sizing: border-box;
   }
 
   /* Horizontal scrollers must never leak past the shell. The native scrollbar
@@ -875,8 +905,9 @@ img {
     gap: var(--rail-gap);
     /* This element is the carousel viewport: it clips the wider track and
        contains all horizontal overflow so the page itself never scrolls. */
-    overflow-x: hidden;
-    overflow-y: hidden;
+    max-width: 100%;
+    overflow-x: clip;
+    overflow-y: clip;
     -webkit-overflow-scrolling: touch;
     padding-bottom: 0.5rem;
     scrollbar-width: none;
@@ -2856,4 +2887,284 @@ img {
   border-radius: var(--r-lg);
   box-shadow: var(--shadow-lg);
   overflow: hidden;
+}
+
+/* =========================================================================
+   ADMIN AUTH LOADER — premium dark loading experience
+   Used only by ProtectedRoute while Firebase resolves identity/role.
+   All motion is transform/opacity; prefers-reduced-motion collapses to static.
+   ========================================================================= */
+
+.auth-loader {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100dvh;
+  min-height: 100vh;
+  padding: 2.5rem 1.5rem;
+  overflow: hidden;
+  isolation: isolate;
+  background: #0c0a09;
+  /* subtle warm base — near-black with barely-there brown */
+  background-image:
+    radial-gradient(62% 48% at 50% 46%, rgba(210, 166, 79, 0.075) 0%, transparent 62%),
+    radial-gradient(38% 28% at 50% 78%, rgba(118, 23, 19, 0.09) 0%, transparent 70%);
+}
+
+/* When used inside the app shell (not fullscreen) keep same premium feel
+   but let the shell own the viewport — ProtectedRoute renders this inside <main> */
+.auth-loader--embedded {
+  min-height: max(70vh, 560px);
+  border-radius: 0;
+}
+
+/* Extremely subtle ambient glow — barely visible warm haze behind logo */
+.auth-loader__glow {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(560px, 90vw);
+  height: min(560px, 90vw);
+  transform: translate(-50%, -50%);
+  border-radius: 9999px;
+  background: radial-gradient(
+    closest-side,
+    rgba(210, 166, 79, 0.09) 0%,
+    rgba(210, 166, 79, 0.04) 42%,
+    transparent 72%
+  );
+  filter: blur(0.5px);
+  pointer-events: none;
+  z-index: 0;
+  animation: auth-glow-drift 9s ease-in-out infinite alternate;
+  will-change: transform, opacity;
+}
+
+/* Two near-invisible ambient specks — luxury "dust" */
+.auth-loader__speck {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  border-radius: 9999px;
+  background: rgba(210, 166, 79, 0.22);
+  pointer-events: none;
+  opacity: 0.35;
+}
+
+.auth-loader__inner {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2rem;
+  width: 100%;
+  max-width: 28rem;
+  animation: auth-inner-in 420ms var(--ease-out-expo) both;
+}
+
+.auth-loader__brand {
+  position: relative;
+  width: 84px;
+  height: 84px;
+  display: grid;
+  place-items: center;
+  border-radius: 9999px;
+}
+
+/* Soft gold halo behind logo */
+.auth-loader__halo {
+  position: absolute;
+  inset: -14px;
+  border-radius: 9999px;
+  background: radial-gradient(closest-side, rgba(210, 166, 79, 0.16), transparent 72%);
+  opacity: 0.9;
+  animation: auth-halo 2.8s ease-in-out infinite;
+  will-change: transform, opacity;
+  pointer-events: none;
+}
+
+.auth-loader__logo {
+  position: relative;
+  width: 84px;
+  height: 84px;
+  border-radius: 9999px;
+  object-fit: cover;
+  display: block;
+  background: #1a1714;
+  border: 1px solid rgba(210, 166, 79, 0.22);
+  box-shadow:
+    0 2px 18px rgba(0, 0, 0, 0.45),
+    0 0 0 1px rgba(210, 166, 79, 0.08),
+    0 8px 32px rgba(0, 0, 0, 0.5);
+  animation: auth-breathe 2.8s ease-in-out infinite;
+  will-change: transform;
+}
+
+.auth-loader__ring {
+  position: absolute;
+  inset: -3px;
+  border-radius: 9999px;
+  border: 1px solid rgba(210, 166, 79, 0.14);
+  pointer-events: none;
+  animation: auth-ring 2.8s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+
+.auth-loader__copy {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.55rem;
+  text-align: center;
+}
+
+.auth-loader__title {
+  font-family: var(--font-display);
+  font-size: clamp(1.05rem, 0.98rem + 0.35vw, 1.25rem);
+  font-weight: 600;
+  letter-spacing: -0.018em;
+  line-height: 1.25;
+  color: #fff8ec;
+  text-wrap: balance;
+}
+
+.auth-loader__subtitle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  font-family: var(--font-body);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: rgba(237, 231, 223, 0.58);
+  line-height: 1.5;
+}
+
+.auth-loader__dots {
+  display: inline-flex;
+  width: 1.1em;
+  justify-content: flex-start;
+  gap: 1px;
+}
+
+.auth-loader__dots span {
+  opacity: 0.2;
+  animation: auth-dot 1.2s ease-in-out infinite;
+}
+
+.auth-loader__dots span:nth-child(2) { animation-delay: 0.2s; }
+.auth-loader__dots span:nth-child(3) { animation-delay: 0.4s; }
+
+/* Polished track — 164px wide, thin rounded */
+.auth-loader__track {
+  position: relative;
+  width: 164px;
+  height: 3px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.auth-loader__shimmer {
+  position: absolute;
+  top: -1px;
+  bottom: -1px;
+  left: 0;
+  width: 64px;
+  border-radius: 9999px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(210, 166, 79, 0) 12%,
+    rgba(210, 166, 79, 0.95) 50%,
+    rgba(210, 166, 79, 0) 88%,
+    transparent 100%
+  );
+  box-shadow: 0 0 10px rgba(210, 166, 79, 0.45);
+  animation: auth-sweep 1.75s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+
+.auth-loader__foot {
+  font-family: var(--font-body);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(210, 166, 79, 0.55);
+  margin-top: -0.5rem;
+}
+
+/* Error variant — same shell, static and calm */
+.auth-loader--error .auth-loader__logo {
+  animation: none;
+  border-color: rgba(210, 166, 79, 0.18);
+}
+.auth-loader--error .auth-loader__halo,
+.auth-loader--error .auth-loader__ring { animation: none; opacity: 0.5; }
+.auth-loader--error .auth-loader__shimmer { display: none; }
+
+@keyframes auth-inner-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes auth-breathe {
+  0%, 100% { transform: scale(0.97); }
+  50%      { transform: scale(1); }
+}
+
+@keyframes auth-halo {
+  0%, 100% { opacity: 0.55; transform: scale(0.95); }
+  50%      { opacity: 0.95; transform: scale(1.02); }
+}
+
+@keyframes auth-ring {
+  0%, 100% { opacity: 0.9; transform: scale(0.98); }
+  50%      { opacity: 0.55; transform: scale(1.03); }
+}
+
+@keyframes auth-glow-drift {
+  0%   { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  100% { transform: translate(-49%, -51%) scale(1.04); opacity: 0.9; }
+}
+
+@keyframes auth-sweep {
+  0%   { transform: translateX(-72px); opacity: 0; }
+  12%  { opacity: 1; }
+  88%  { opacity: 1; }
+  100% { transform: translateX(164px); opacity: 0; }
+}
+
+@keyframes auth-dot {
+  0%, 70%, 100% { opacity: 0.2; transform: translateY(0); }
+  35%          { opacity: 1; transform: translateY(-1px); }
+}
+
+/* Reduced motion — all decorative motion collapses to static */
+@media (prefers-reduced-motion: reduce) {
+  .auth-loader__glow,
+  .auth-loader__halo,
+  .auth-loader__ring,
+  .auth-loader__logo,
+  .auth-loader__shimmer,
+  .auth-loader__dots span,
+  .auth-loader__inner {
+    animation: none !important;
+  }
+  .auth-loader__shimmer {
+    display: none;
+  }
+  .auth-loader__track::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(210, 166, 79, 0.45);
+    opacity: 0.5;
+  }
 }

@@ -223,11 +223,6 @@ const EDGE_GEO = String(process.env.TRUST_EDGE_GEO || '').toLowerCase();
 
 const EDGE_HEADERS = {
   cloudflare: { country: ['cf-ipcountry'], region: [], city: [] },
-  vercel: {
-    country: ['x-vercel-ip-country'],
-    region: ['x-vercel-ip-country-region'],
-    city: ['x-vercel-ip-city'],
-  },
 };
 
 const ISO_COUNTRY = /^[A-Z]{2}$/;

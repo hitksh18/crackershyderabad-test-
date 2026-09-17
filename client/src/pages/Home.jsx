@@ -60,6 +60,16 @@ const Home = () => {
   const [festiveDeals, setFestiveDeals] = useState([]);
   const [categoryShowcaseConfig, setCategoryShowcaseConfig] = useState(null);
 
+  /* Homepage-only scrollbar treatment: hide the visible page scrollbar while
+     keeping normal document scrolling (wheel, trackpad, touch, keyboard all
+     operate on the document scroller, which stays overflow-y: auto). Scoped
+     via a class on <html> — removed on unmount — so admin pages, modals,
+     dropdowns and every internal scroll container are untouched. */
+  useEffect(() => {
+    document.documentElement.classList.add('route-home');
+    return () => document.documentElement.classList.remove('route-home');
+  }, []);
+
   useEffect(() => {
     const fetchAll = async () => {
       try {
@@ -152,7 +162,8 @@ const Home = () => {
   const featuredShown = maxOrAll(featuredProducts, sectionText.featured?.maxItems ?? 12);
   const bestShown = maxOrAll(bestSellers, sectionText.bestSellers?.maxItems ?? 10);
   const dealsShown = maxOrAll(festiveDeals, sectionText.deals?.maxItems);
-  const announcementLine = firstAnnouncementText(siteSettings?.announcementBar, strip.banner1Text);
+  // announcement/stable bars below hero removed from public display per spec — keep config/fetch intact
+  void firstAnnouncementText; void siteSettings; void strip;
 
   const countInCategory = (matchNames) => {
     return allProducts.filter(p => {
@@ -213,33 +224,13 @@ const Home = () => {
       case 'promoCards':
         return null; // hero already includes promoCards
       case 'announcement':
-        return siteSettings?.announcementBar?.enabled ? (
-          <div key={section.id} className="relative" style={{ borderTop: '1px solid rgba(210,166,79,0.22)', background: 'rgba(26,23,20,0.42)' }}>
-            <div className="shell-wide py-3.5 text-center">
-              <p className="text-xs font-semibold sm:text-sm" style={{ fontFamily: 'var(--font-body)', color: 'var(--text-on-dark)' }}>
-                {announcementLine}
-              </p>
-            </div>
-          </div>
-        ) : null;
+        // Announcement bar below hero removed from public homepage per design spec.
+        // Top marquee (TopBanner) remains above navbar. Canvas data stays intact.
+        return null;
       case 'stableMessage':
-        return siteSettings?.stableMessage?.enabled ? (
-          <div key={section.id} className="relative" style={{ borderTop: '1px solid rgba(210,166,79,0.22)', background: 'rgba(26,23,20,0.42)' }}>
-            <div className="shell-wide py-3.5 text-center">
-              <p className="text-xs font-semibold sm:text-sm" style={{ fontFamily: 'var(--font-body)', color: 'var(--text-on-dark)' }}>
-                {siteSettings.stableMessage.text}
-              </p>
-            </div>
-          </div>
-        ) : strip.banner1Enabled ? (
-          <div key={section.id} className="relative" style={{ borderTop: '1px solid rgba(210,166,79,0.22)', background: 'rgba(26,23,20,0.42)' }}>
-            <div className="shell-wide py-3.5 text-center">
-              <p className="text-xs font-semibold sm:text-sm" style={{ fontFamily: 'var(--font-body)', color: 'var(--text-on-dark)' }}>
-                {strip.banner1Text}
-              </p>
-            </div>
-          </div>
-        ) : null;
+        // Stable message below hero removed from public homepage per design spec.
+        // Canvas config (settings/siteSettings.stableMessage) remains writable.
+        return null;
       case 'categories':
         return <CategoryShowcase key={section.id} sectionRef={categoriesRef} countInCategory={countInCategory} categories={visibleCategories} heading={homepageContent.categories} />;
       case 'featured':
@@ -324,15 +315,6 @@ const Home = () => {
       ) : (
         <>
           {hero}
-          {strip.banner1Enabled && (
-            <div className="relative" style={{ borderTop: '1px solid rgba(210,166,79,0.22)', background: 'rgba(26,23,20,0.42)' }}>
-              <div className="shell-wide py-3.5 text-center">
-                <p className="text-xs font-semibold sm:text-sm" style={{ fontFamily: 'var(--font-body)', color: 'var(--text-on-dark)' }}>
-                  {strip.banner1Text}
-                </p>
-              </div>
-            </div>
-          )}
           <CategoryShowcase sectionRef={categoriesRef} countInCategory={countInCategory} categories={visibleCategories} heading={homepageContent.categories} />
           <FeaturedSection products={featuredShown} heading={homepageContent.featured} loading={loading} />
           <section className="section-pad" style={{ background: 'var(--surface-page)' }}>

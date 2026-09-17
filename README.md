@@ -48,7 +48,7 @@ A premium e-commerce platform for Standard Fireworks built with React, Firebase,
 ### Database & Services
 - Firebase Authentication (Email/Password + Google OAuth)
 - Firestore Database
-- Firebase Storage (for invoices and images)
+- Hostinger KVM media storage (for images)
 - jsPDF for invoice generation
 
 ## Project Structure
@@ -145,7 +145,7 @@ npm install
 3. Enable the following services:
    - Authentication (Email/Password + Google Sign-in)
    - Firestore Database
-   - Firebase Storage
+   - No Firebase Storage is required
 
 #### Configure Firebase Collections
 The following Firestore collections are required:
@@ -277,7 +277,7 @@ Environment variables are managed through Replit Secrets.
   items: array,
   total: number,
   status: string,     // "Pending" | "Packed" | "Shipped" | "Delivered" | "Cancelled"
-  invoiceURL: string, // Firebase Storage URL
+  invoiceURL: string, // external invoice URL, if configured
   createdAt: timestamp
 }
 ```
@@ -335,13 +335,13 @@ Environment variables are managed through Replit Secrets.
 ### Canvas Editor
 - Visual editor for all website content
 - Live preview of changes
-- Firebase Storage integration for uploads
+- KVM API integration for image uploads
 - Tabs: Hero, Alerts, Footer, Admin Settings
 
 ### WhatsApp Invoice Delivery
 1. Customer completes checkout
 2. PDF invoice generated with jsPDF
-3. Uploaded to Firebase Storage (`/invoices/`)
+3. Product and canvas images are uploaded to KVM media (`/uploads/`)
 4. Backend API calls Twilio WhatsApp API
 5. Invoice link sent to customer's WhatsApp
 
