@@ -298,6 +298,28 @@ body::after {
   height: 0;
 }
 
+/* Products page only (.route-products is toggled on <html> by Products.jsx
+   while the catalogue is mounted, removed on unmount): hide the visible page
+   scrollbar while keeping normal document scrolling.
+   - Scoped to html/body ONLY, so admin panels, modals, dropdowns, rails and
+     every other internal scroll container keep their scrollbars.
+   - overflow-y stays auto (never hidden/clip): wheel, trackpad, touch and
+     keyboard scrolling all keep working on the document scroller.
+   - overflow-x is clipped to guarantee no horizontal scrollbar. */
+.route-products,
+.route-products body {
+  overflow-y: auto;
+  overflow-x: clip;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.route-products::-webkit-scrollbar,
+.route-products body::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
 /* Focus is never removed — only restyled. */
 button:focus-visible,
 a:focus-visible,
@@ -492,7 +514,7 @@ img {
   /* Sticky navigation bar — slightly more opaque than a card so content
      scrolling under it stays legible, with a hairline + soft shadow for the
      "floating on glass" lift. */
-  .glass-nav {
+.glass-nav {
     position: relative;
     background: var(--glass-fill-nav);
     -webkit-backdrop-filter: var(--glass-blur-strong);
@@ -780,6 +802,38 @@ img {
   }
 }
 
+/* Homepage-only: the header continues the dark hero field instead of reading
+   as a floating light card. All other routes keep the regular glass nav. */
+.home-nav {
+  background: linear-gradient(180deg, #120908 0%, #0b0606 100%);
+  border-bottom-color: rgba(255, 248, 236, 0.06);
+  box-shadow: none;
+}
+
+.home-nav::after {
+  content: '';
+  position: absolute;
+  inset: auto 0 -18px;
+  height: 18px;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(11, 6, 6, 0.7), transparent);
+}
+
+/* Cinematic hero: substantial but never fullscreen (680–760px on desktop)
+   so the next section peeks below the fold. Its own bounds contain
+   crossfades and controls, so they cannot affect page width. */
+.cinematic-hero {
+  height: clamp(620px, 78vh, 740px);
+  min-height: 620px;
+}
+
+@media (max-width: 767px) {
+  .cinematic-hero {
+    height: 660px;
+    min-height: 600px;
+  }
+}
+
 /* =========================================================================
    UTILITIES
    ========================================================================= */
@@ -893,9 +947,10 @@ img {
   }
 
   /* Horizontal scrollers must never leak past the shell. The native scrollbar
-     is hidden and vertical overflow is clipped (no inner vertical scrollbar);
-     the rail still scrolls horizontally via the arrow buttons, drag, touch
-     swipe and wheel. */
+     is hidden and vertical overflow is contained (no inner vertical
+     scrollbar); the rail scrolls horizontally via the arrow buttons, drag,
+     touch swipe and wheel. overflow-x MUST stay auto — clip would freeze
+     scrollLeft and silently break every rail control. */
   .rail {
     /* The gap used by the flex track. Cards are sized against this exact
        value so N cards + (N-1) gaps always equal the viewport width —
@@ -903,17 +958,17 @@ img {
     --rail-gap: clamp(1rem, 0.8rem + 0.6vw, 1.5rem);
     display: flex;
     gap: var(--rail-gap);
-    /* This element is the carousel viewport: it clips the wider track and
-       contains all horizontal overflow so the page itself never scrolls. */
+    /* This element is the carousel viewport AND a real scroll container:
+       it contains the wider track so the page itself never scrolls. */
     max-width: 100%;
-    overflow-x: clip;
-    overflow-y: clip;
+    overflow-x: auto;
+    overflow-y: hidden;
     -webkit-overflow-scrolling: touch;
     padding-bottom: 0.5rem;
     scrollbar-width: none;
     -ms-overflow-style: none;
     scroll-snap-type: x proximity;
-    touch-action: pan-y;
+    touch-action: pan-x pan-y;
     cursor: grab;
   }
 
@@ -1083,16 +1138,6 @@ img {
 
 .marquee-track:hover {
   animation-play-state: paused;
-}
-
-/* Slow push-in on the active hero banner image. */
-@keyframes hero-zoom {
-  from { transform: scale(1); }
-  to { transform: scale(1.08); }
-}
-
-.hero-zoom {
-  animation: hero-zoom 8s var(--ease-out-soft) forwards;
 }
 
 /* =========================================================================
@@ -2675,9 +2720,8 @@ img {
   }
 
   /* ---- 11. NO PAGE HORIZONTAL OVERFLOW ------------------------------- */
-  html, body, #root {
+  #root {
     max-width: 100% !important;
-    overflow-x: hidden !important;
   }
   .shell.products-page,
   .shell.products-page * {

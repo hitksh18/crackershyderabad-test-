@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, MapPin, ShoppingBag, Gift, Gem, Truck, ShieldCheck, Headset } from 'lucide-react';
+import { MapPin, ShoppingBag, Gift, BadgeCheck, Truck, ShieldCheck, Headphones } from 'lucide-react';
 import { useReducedMotion } from '../../hooks/useReducedMotion';
 import { Skeleton } from '../ui/Skeleton';
 
@@ -20,8 +20,10 @@ const imageFor = (banner, isMobile) => {
 };
 
 /* ================================================================== */
-/*  Cinematic Hero — ONE immersive banner, left-aligned premium copy.   */
-/*  No right-side promo column. Carousel is crossfade only, no zoom.   */
+/*  Cinematic Hero — fixed-height campaign frame, text left with negative  */
+/*  space, right open for the night-skyline photography. Trust assurances  */
+/*  live in the slim strip below, not in the hero. Carousel is crossfade   */
+/*  only, no zoom.                                                         */
 /* ================================================================== */
 
 const CinematicHero = ({ banners, durationSec }) => {
@@ -50,8 +52,8 @@ const CinematicHero = ({ banners, durationSec }) => {
   if (count === 0) {
     return (
       <div
-        className="relative overflow-hidden"
-        style={{ borderRadius: '22px', background: 'linear-gradient(135deg,#1a0f0e 0%,#2a1512 100%)', minHeight: 520 }}
+        className="cinematic-hero relative overflow-hidden"
+        style={{ background: 'linear-gradient(135deg,#1a0f0e 0%,#2a1512 100%)' }}
       />
     );
   }
@@ -77,6 +79,14 @@ const CinematicHero = ({ banners, durationSec }) => {
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
     >
+      {/* ---------------- Cinematic atmosphere — restrained, directional ---------------- */}
+      {/* Base: deep charcoal / near-black. Left holds the copy; right recedes so
+          the night-skyline photography stays the focal point. */}
+      <div
+        aria-hidden="true"
+        className="absolute inset-0"
+        style={{ background: '#0B0908' }}
+      />
       {/* ---------------- Background image — crossfade only, NO zoom ---------------- */}
       <AnimatePresence initial={false} mode="wait">
         <motion.div
@@ -84,10 +94,9 @@ const CinematicHero = ({ banners, durationSec }) => {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: reduced ? 0.001 : 0.65, ease: [0.4, 0, 0.2, 1] }}
+          transition={{ duration: reduced ? 0.001 : 0.9, ease: [0.4, 0, 0.2, 1] }}
           className="absolute inset-0"
         >
-          <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg,#1a0f0e 0%,#0c0a09 100%)' }} />
           {bgSrc && (
             <img
               src={bgSrc}
@@ -95,238 +104,193 @@ const CinematicHero = ({ banners, durationSec }) => {
               loading="eager"
               decoding="async"
               className="absolute inset-0 h-full w-full object-cover"
-              style={{ objectPosition: 'center 35%' }}
+              style={{ objectPosition: isMobile ? 'center 62%' : 'center 38%' }}
               draggable={false}
             />
           )}
         </motion.div>
       </AnimatePresence>
 
-      {/* ---------------- Cinematic overlays — directional left→right, NOT full dark ---------------- */}
-      {/* Localized left-side gradient for readable copy — right stays vibrant */}
+      {/* Legibility gradient — left holds copy, dissolves by ~two-thirds so the
+          right-side skyline and fireworks breathe */}
       <div
         aria-hidden="true"
         className="absolute inset-0"
         style={{
           background:
-            // Left 0–45% darker, center moderate, right transparent for fireworks
-            'linear-gradient(90deg, rgba(10,6,5,0.88) 0%, rgba(14,8,7,0.78) 30%, rgba(14,8,7,0.42) 52%, rgba(14,8,7,0.12) 72%, transparent 88%),' +
-            'linear-gradient(180deg, rgba(6,4,4,0.20) 0%, transparent 38%, transparent 74%, rgba(6,4,4,0.28) 100%)',
+            'linear-gradient(90deg, rgba(8,5,4,0.94) 0%, rgba(10,7,6,0.84) 26%, rgba(10,7,6,0.48) 46%, rgba(10,7,6,0.14) 62%, transparent 78%),' +
+            'linear-gradient(180deg, rgba(5,3,3,0.38) 0%, transparent 30%, transparent 60%, rgba(5,3,3,0.58) 100%)',
         }}
       />
-      {/* Top blend into navbar — almost invisible, softens hard edge */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-0 h-[64px]"
-        style={{ background: 'linear-gradient(180deg, rgba(7,5,5,0.55) 0%, transparent 100%)', opacity: 0.9 }}
-      />
-      {/* Bottom blend into next section — uses page background, not another dark bar */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 bottom-0 h-[84px]"
-        style={{ background: 'linear-gradient(180deg, transparent 0%, rgba(6,4,4,0.32) 42%, rgba(253,249,240,0.0) 100%)', opacity: 1 }}
-      />
-      {/* Very faint gold haze — centred, barely visible, not clutter */}
+      {/* Warm amber city glow — low right, barely-there horizon light */}
       <div
         aria-hidden="true"
         className="pointer-events-none absolute"
         style={{
-          left: '46%',
-          top: '42%',
-          width: 360,
-          height: 360,
-          transform: 'translate(-50%,-50%)',
-          background: 'radial-gradient(closest-side, rgba(210,166,79,0.05), transparent 70%)',
-          opacity: 1,
+          right: '-8%',
+          bottom: '-22%',
+          width: '62%',
+          height: '68%',
+          background: 'radial-gradient(closest-side, rgba(247,174,44,0.08), transparent 72%)',
         }}
       />
+      {/* Vignette — gentle edge falloff for a campaign-frame feel */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0"
+        style={{ background: 'radial-gradient(120% 100% at 50% 42%, transparent 58%, rgba(0,0,0,0.36) 100%)' }}
+      />
+      {/* Film grain — subtle, static, matches the site's paper-grain language */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 opacity-60"
+        style={{
+          backgroundImage:
+            "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E\")",
+        }}
+      />
+      {/* Top blend into navbar — softens the hard edge */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 top-0 h-12"
+        style={{ background: 'linear-gradient(180deg, rgba(7,5,5,0.5) 0%, transparent 100%)' }}
+      />
 
-      {/* ---------------- Main content — 40–45% on desktop, full on mobile ---------------- */}
-      <div className="relative z-10 flex h-full min-h-[inherit] w-full max-w-[92%] flex-col justify-center px-5 py-8 sm:max-w-[52%] sm:px-8 md:max-w-[46%] md:px-10 lg:max-w-[44%] lg:px-12 xl:max-w-[42%] xl:px-14">
-        {/* Eyebrow */}
-        <motion.div
-          key={`eyebrow-${active.id}`}
-          initial={reduced ? false : { opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.45, delay: 0.08, ease: [0.16, 1, 0.3, 1] }}
-          className="mb-3 flex items-center gap-3"
-        >
-          <span aria-hidden="true" className="h-px w-9 shrink-0" style={{ background: 'linear-gradient(90deg, #D2A64F, rgba(210,166,79,0.15))' }} />
-          <span
-            className="text-[11px] font-bold tracking-[0.18em]"
-            style={{ color: '#D2A64F', fontFamily: 'var(--font-body)' }}
+      {/* ---------------- Content shell — text left with negative space, right open for the skyline ---------------- */}
+      <div className="relative z-10 mx-auto flex h-full min-h-[inherit] w-full max-w-[1400px] flex-col justify-center px-5 py-14 sm:px-8 md:grid md:grid-cols-[minmax(0,46%)_1fr] md:items-center md:gap-8 md:px-10 lg:grid-cols-[minmax(0,43%)_1fr] lg:px-12 xl:px-14">
+        <div className="min-w-0 max-w-[560px]">
+          {/* Eyebrow */}
+          <motion.div
+            key={`eyebrow-${active.id}`}
+            initial={reduced ? false : { opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.45, delay: 0.08, ease: [0.16, 1, 0.3, 1] }}
+            className="mb-5 flex items-center gap-3"
           >
-            PREMIUM FIREWORKS STORE
-          </span>
-        </motion.div>
-
-        {/* Heading — Crackers Hyderabad */}
-        <motion.div
-          key={`heading-${active.id}`}
-          initial={reduced ? false : { opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.14, ease: [0.16, 1, 0.3, 1] }}
-        >
-          <h1
-            className="font-bold leading-[0.95] tracking-tight"
-            style={{
-              fontFamily: 'var(--font-display)',
-              fontSize: 'clamp(2.4rem, 5vw, 4.35rem)',
-              letterSpacing: '-0.03em',
-              lineHeight: 0.95,
-            }}
-          >
-            <span className="block" style={{ color: '#FFF8EC', fontWeight: 400, letterSpacing: '-0.02em' }}>
-              Crackers
-            </span>
+            <span aria-hidden="true" className="h-px w-10 shrink-0" style={{ background: '#B28C46', opacity: 0.8 }} />
             <span
-              className="block"
+              className="text-[11px] font-semibold tracking-[0.24em]"
+              style={{ color: '#C9A961', fontFamily: 'var(--font-body)' }}
+            >
+              PREMIUM FIREWORKS STORE
+            </span>
+          </motion.div>
+
+          {/* Headline — editorial serif, two lines */}
+          <motion.div
+            key={`heading-${active.id}`}
+            initial={reduced ? false : { opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.55, delay: 0.14, ease: [0.16, 1, 0.3, 1] }}
+          >
+            <h1
+              aria-label="Crackers Hyderabad"
+              className="m-0 font-bold"
               style={{
-                background: 'linear-gradient(180deg, #E2C177 8%, #D2A64F 42%, #9E7029 100%)',
-                WebkitBackgroundClip: 'text',
-                backgroundClip: 'text',
-                color: 'transparent',
-                fontWeight: 700,
-                paddingBottom: '0.06em',
+                fontFamily: 'var(--font-display)',
+                fontSize: 'clamp(2.9rem, 4.6vw, 4.4rem)',
+                letterSpacing: '-0.02em',
+                lineHeight: 1.02,
               }}
             >
-              Hyderabad
+              <span className="block" style={{ color: '#F8F2E7', fontWeight: 500 }}>
+                Crackers
+              </span>
+              <span
+                className="block"
+                style={{
+                  background: 'linear-gradient(180deg, #D9BE82 0%, #C2A059 55%, #A8823F 100%)',
+                  WebkitBackgroundClip: 'text',
+                  backgroundClip: 'text',
+                  color: 'transparent',
+                  fontWeight: 700,
+                  paddingBottom: '0.08em',
+                }}
+              >
+                Hyderabad
+              </span>
+            </h1>
+          </motion.div>
+
+          {/* Supporting line */}
+          <motion.p
+            key={`sub-${active.id}`}
+            initial={reduced ? false : { opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.45, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
+            className="mt-5 text-sm leading-relaxed sm:text-[15px]"
+            style={{ color: 'rgba(248,242,231,0.72)', fontFamily: 'var(--font-body)', fontWeight: 400, letterSpacing: '0.02em' }}
+          >
+            Premium Crackers&nbsp;&nbsp;|&nbsp;&nbsp;Best Prices&nbsp;&nbsp;|&nbsp;&nbsp;Safe &amp; Trusted
+          </motion.p>
+
+          {/* CTAs */}
+          <motion.div
+            key={`cta-${active.id}`}
+            initial={reduced ? false : { opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.45, delay: 0.26, ease: [0.16, 1, 0.3, 1] }}
+            className="mt-8 flex flex-wrap items-center gap-3"
+          >
+            <Link
+              to={shopHref}
+              className="inline-flex h-12 items-center gap-2.5 rounded-lg px-7 text-[13px] font-bold tracking-[0.12em] transition-all"
+              style={{
+                background: 'linear-gradient(180deg, #DDBB72 0%, #BE9550 100%)',
+                color: '#241A0C',
+                border: '1px solid rgba(255,255,255,0.16)',
+                boxShadow: '0 8px 26px rgba(190,149,80,0.28)',
+                fontFamily: 'var(--font-body)',
+              }}
+            >
+              <ShoppingBag className="h-[15px] w-[15px]" strokeWidth={2.1} aria-hidden="true" />
+              <span>SHOP NOW</span>
+            </Link>
+
+            <Link
+              to={exploreHref}
+              className="inline-flex h-12 items-center gap-2.5 rounded-lg px-7 text-[13px] font-bold tracking-[0.12em] transition-colors"
+              style={{
+                background: 'rgba(12,8,7,0.5)',
+                color: '#D9BE82',
+                border: '1px solid rgba(178,140,70,0.45)',
+                backdropFilter: 'blur(8px)',
+                WebkitBackdropFilter: 'blur(8px)',
+                fontFamily: 'var(--font-body)',
+              }}
+            >
+              <Gift className="h-[15px] w-[15px]" strokeWidth={2} aria-hidden="true" />
+              <span>EXPLORE OFFERS</span>
+            </Link>
+          </motion.div>
+
+          {/* Location line */}
+          <motion.div
+            key={`loc-${active.id}`}
+            initial={reduced ? false : { opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5, delay: 0.34 }}
+            className="mt-9 flex items-center gap-2"
+            aria-hidden="true"
+          >
+            <MapPin className="h-3.5 w-3.5 shrink-0" style={{ color: '#B28C46' }} strokeWidth={2} />
+            <span className="text-[11px] font-semibold tracking-[0.2em]" style={{ color: 'rgba(248,242,231,0.5)', fontFamily: 'var(--font-body)' }}>
+              HYDERABAD&nbsp;&nbsp;·&nbsp;&nbsp;A CITY THAT CELEBRATES
             </span>
-          </h1>
-        </motion.div>
+          </motion.div>
+        </div>
 
-        {/* Subtitle */}
-        <motion.p
-          key={`sub-${active.id}`}
-          initial={reduced ? false : { opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.45, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
-          className="mt-3 max-w-[36ch] text-sm leading-relaxed sm:text-[15px]"
-          style={{ color: 'rgba(255,248,236,0.78)', fontFamily: 'var(--font-body)', fontWeight: 400, letterSpacing: '0.01em' }}
-        >
-          Premium Crackers | Best Prices | Safe &amp; Trusted
-        </motion.p>
-
-        {/* CTAs */}
-        <motion.div
-          key={`cta-${active.id}`}
-          initial={reduced ? false : { opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.45, delay: 0.26, ease: [0.16, 1, 0.3, 1] }}
-          className="mt-6 flex flex-wrap items-center gap-3"
-        >
-          <Link
-            to={shopHref}
-            className="inline-flex h-11 items-center gap-2 rounded-xl px-6 text-sm font-bold transition-all"
-            style={{
-              background: 'linear-gradient(180deg, #E8C86A 0%, #D2A64F 100%)',
-              color: '#2A1D0F',
-              border: '1px solid rgba(255,255,255,0.22)',
-              boxShadow: '0 6px 22px rgba(210,166,79,0.32), 0 1px 0 rgba(255,255,255,0.4) inset',
-              letterSpacing: '0.01em',
-            }}
-          >
-            <ShoppingBag className="h-4 w-4" strokeWidth={2.2} aria-hidden="true" />
-            <span>Shop Now</span>
-            <ChevronRight className="h-4 w-4" strokeWidth={2.4} aria-hidden="true" />
-          </Link>
-
-          <Link
-            to={exploreHref}
-            className="inline-flex h-11 items-center gap-2 rounded-xl px-6 text-sm font-bold transition-colors"
-            style={{
-              background: 'rgba(18,11,10,0.55)',
-              color: '#E2C177',
-              border: '1px solid rgba(210,166,79,0.55)',
-              backdropFilter: 'blur(8px)',
-              WebkitBackdropFilter: 'blur(8px)',
-              boxShadow: '0 2px 12px rgba(0,0,0,0.28)',
-            }}
-          >
-            <Gift className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
-            <span>Explore Offers</span>
-            <ChevronRight className="h-4 w-4" strokeWidth={2.2} aria-hidden="true" />
-          </Link>
-        </motion.div>
-
-        {/* Trust row — compact, gold line icons */}
-        <motion.div
-          key={`trust-${active.id}`}
-          initial={reduced ? false : { opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.5, delay: 0.34 }}
-          className="mt-8 grid max-w-[560px] grid-cols-2 gap-4 sm:flex sm:flex-wrap sm:gap-6 lg:gap-7"
-        >
-          {[
-            { icon: Gem, title: '100% Genuine', sub: 'Products' },
-            { icon: Truck, title: 'Free Shipping', sub: 'Above ₹2,500' },
-            { icon: ShieldCheck, title: 'Safe & Secure', sub: 'Payments' },
-            { icon: Headset, title: 'Dedicated', sub: 'Support' },
-          ].map((f) => {
-            const Icon = f.icon;
-            return (
-              <div key={f.title} className="flex items-center gap-2.5">
-                <span
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
-                  style={{
-                    background: 'rgba(210,166,79,0.09)',
-                    border: '1px solid rgba(210,166,79,0.18)',
-                  }}
-                >
-                  <Icon className="h-[15px] w-[15px]" style={{ color: '#D2A64F' }} strokeWidth={1.9} aria-hidden="true" />
-                </span>
-                <span className="leading-tight">
-                  <span className="block text-xs font-semibold tracking-wide" style={{ color: '#FFF8EC', fontFamily: 'var(--font-body)' }}>
-                    {f.title}
-                  </span>
-                  <span className="block text-[11px] font-medium" style={{ color: 'rgba(255,248,236,0.58)' }}>
-                    {f.sub}
-                  </span>
-                </span>
-              </div>
-            );
-          })}
-        </motion.div>
+        {/* Right column — intentionally open: the night-skyline photography is the focal point */}
+        <div aria-hidden="true" className="hidden min-h-[1px] md:block" />
       </div>
 
-      {/* ---------------- Pagination — minimal elegant ---------------- */}
+      {/* ---------------- Minimal position dots — one quiet control ---------------- */}
       {count > 1 && (
-        <div className="absolute bottom-5 left-5 z-20 hidden items-center gap-3 sm:left-8 md:left-10 lg:left-12 xl:left-14 sm:flex">
-          {banners.map((b, i) => {
-            const activeIdx = i === index;
-            return (
-              <button
-                key={b.id}
-                type="button"
-                aria-label={`Go to slide ${i + 1}`}
-                aria-current={activeIdx}
-                onClick={() => go(i)}
-                className="group flex items-center gap-2"
-              >
-                <span
-                  className="text-[11px] font-bold tabular-nums transition-colors"
-                  style={{ color: activeIdx ? '#E2C177' : 'rgba(255,248,236,0.38)', letterSpacing: '0.04em' }}
-                >
-                  0{i + 1}
-                </span>
-                <span
-                  className="h-px w-10 transition-all"
-                  style={{
-                    background: activeIdx ? 'linear-gradient(90deg,#D2A64F,#E2C177)' : 'rgba(255,248,236,0.22)',
-                    width: activeIdx ? 44 : 32,
-                    opacity: activeIdx ? 1 : 0.9,
-                    boxShadow: activeIdx ? '0 0 8px rgba(210,166,79,0.45)' : 'none',
-                    height: activeIdx ? 2 : 1,
-                  }}
-                />
-              </button>
-            );
-          })}
-        </div>
-      )}
-      {/* Mobile dots */}
-      {count > 1 && (
-        <div className="absolute bottom-4 left-1/2 z-20 flex -translate-x-1/2 items-center gap-1.5 sm:hidden" role="tablist" aria-label="Hero navigation">
+        <div
+          className="absolute bottom-6 left-5 z-20 flex items-center gap-2 sm:left-8 md:left-10 lg:left-12 xl:left-14"
+          role="tablist"
+          aria-label="Hero slides"
+        >
           {banners.map((b, i) => (
             <button
               key={b.id}
@@ -337,86 +301,70 @@ const CinematicHero = ({ banners, durationSec }) => {
               onClick={() => go(i)}
               className="h-1.5 rounded-full transition-all"
               style={{
-                width: i === index ? 22 : 7,
-                background: i === index ? '#D2A64F' : 'rgba(255,248,236,0.32)',
-                boxShadow: i === index ? '0 0 8px rgba(210,166,79,0.6)' : 'none',
+                width: i === index ? 26 : 6,
+                background: i === index ? '#C9A961' : 'rgba(248,242,231,0.28)',
               }}
             />
           ))}
         </div>
       )}
-
-      {/* ---------------- Prev / Next — small circular, dark translucent, gold border ---------------- */}
-      {count > 1 && (
-        <>
-          <button
-            type="button"
-            onClick={() => go(index - 1)}
-            aria-label="Previous banner"
-            className="absolute left-3 top-1/2 z-20 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full transition-all sm:left-4 md:flex"
-            style={{
-              background: 'rgba(13,8,7,0.62)',
-              border: '1px solid rgba(210,166,79,0.45)',
-              backdropFilter: 'blur(8px)',
-              WebkitBackdropFilter: 'blur(8px)',
-              color: '#FFF8EC',
-              boxShadow: '0 2px 14px rgba(0,0,0,0.42)',
-            }}
-          >
-            <ChevronLeft className="h-4 w-4" strokeWidth={2.4} aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            onClick={() => go(index + 1)}
-            aria-label="Next banner"
-            className="absolute right-3 top-1/2 z-20 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full transition-all sm:right-4 md:flex"
-            style={{
-              background: 'rgba(13,8,7,0.62)',
-              border: '1px solid rgba(210,166,79,0.45)',
-              backdropFilter: 'blur(8px)',
-              WebkitBackdropFilter: 'blur(8px)',
-              color: '#FFF8EC',
-              boxShadow: '0 2px 14px rgba(0,0,0,0.42)',
-            }}
-          >
-            <ChevronRight className="h-4 w-4" strokeWidth={2.4} aria-hidden="true" />
-          </button>
-        </>
-      )}
-
-      {/* ---------------- Hyderabad branding — subtle, bottom-right ---------------- */}
-      <div
-        className="pointer-events-none absolute bottom-5 right-5 z-20 hidden items-center gap-2 sm:right-8 md:right-10 lg:right-12 sm:flex"
-        aria-hidden="true"
-      >
-        <MapPin className="h-3.5 w-3.5" style={{ color: '#D2A64F' }} strokeWidth={2} />
-        <span className="flex flex-col items-start gap-0 text-right">
-          <span className="text-[11px] font-bold tracking-[0.16em]" style={{ color: '#E2C177' }}>
-            HYDERABAD
-          </span>
-          <span className="text-[9px] font-semibold tracking-[0.14em]" style={{ color: 'rgba(255,248,236,0.42)' }}>
-            A CITY THAT CELEBRATES
-          </span>
-        </span>
-      </div>
     </div>
   );
 };
 
+const HERO_TRUST_ITEMS = [
+  { icon: BadgeCheck, title: '100% Genuine', sub: 'Products' },
+  { icon: Truck, title: 'Free Shipping', sub: 'Above ₹2,500' },
+  { icon: ShieldCheck, title: 'Safe & Secure', sub: 'Payments' },
+  { icon: Headphones, title: 'Dedicated', sub: 'Support' },
+];
+
+/* Slim trust strip directly beneath the hero — quiet text row with hairline
+   dividers, no cards or boxes. Carries the four assurances that used to sit
+   inside the hero. */
+const HeroTrustStrip = () => (
+  <div
+    className="relative"
+    style={{ background: '#0B0908', borderTop: '1px solid rgba(178,140,70,0.22)' }}
+  >
+    <div className="mx-auto grid max-w-[1400px] grid-cols-2 px-5 sm:px-8 md:grid-cols-4 md:px-10 lg:px-12 xl:px-14">
+      {HERO_TRUST_ITEMS.map((item, i) => {
+        const Icon = item.icon;
+        return (
+          <div
+            key={item.title}
+            className={`flex items-center gap-2.5 py-4 md:justify-center md:py-5 ${
+              i > 0 ? 'md:border-l md:border-[rgba(178,140,70,0.16)]' : ''
+            } ${i % 2 === 1 ? 'justify-end md:justify-center' : ''}`}
+          >
+            <Icon className="h-[15px] w-[15px] shrink-0" style={{ color: '#B28C46' }} strokeWidth={1.9} aria-hidden="true" />
+            <span className="leading-tight">
+              <span className="block text-xs font-semibold tracking-wide" style={{ color: '#F8F2E7', fontFamily: 'var(--font-body)' }}>
+                {item.title}
+              </span>
+              <span className="block text-[11px]" style={{ color: 'rgba(248,242,231,0.52)', fontFamily: 'var(--font-body)' }}>
+                {item.sub}
+              </span>
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  </div>
+);
+
 const HeroShellSkeleton = () => (
   <div
     className="cinematic-hero relative w-full overflow-hidden"
-    style={{
-      background: 'linear-gradient(135deg,#1a0f0e 0%,#0c0a09 100%)',
-    }}
+    style={{ background: '#0B0908' }}
   >
-    <div className="absolute inset-0 flex flex-col justify-center gap-4 px-6 py-8 sm:px-8">
-      <Skeleton className="h-3 w-32" rounded="999px" />
-      <Skeleton className="h-10 w-64" rounded="8px" />
-      <Skeleton className="h-4 w-72" rounded="8px" />
+    <div className="mx-auto flex h-full max-w-[1400px] flex-col justify-center gap-4 px-6 py-8 sm:px-8">
+      <Skeleton className="h-3 w-36" rounded="999px" />
+      <Skeleton className="h-14 w-72" rounded="8px" />
+      <Skeleton className="h-4 w-80" rounded="8px" />
       <div className="mt-2 flex gap-3">
-        <Skeleton className="h-10 w-28" rounded="12px" />
-        <Skeleton className="h-10 w-36" rounded="12px" />
+        <Skeleton className="h-12 w-36" rounded="8px" />
+        <Skeleton className="h-12 w-44" rounded="8px" />
       </div>
     </div>
   </div>
@@ -444,10 +392,8 @@ const StorefrontHero = ({ banners, cards, durationSec, loading, mode = 'auto' })
 
   if (loading) {
     return (
-      <section className="relative isolate overflow-hidden" style={{ background: HERO_SHELL_BG }}>
-        <div className="relative mx-auto w-full max-w-[2000px] px-3 md:px-5">
-          <HeroShellSkeleton />
-        </div>
+      <section className="hero-stage relative isolate overflow-hidden" style={{ background: HERO_SHELL_BG }}>
+        <HeroShellSkeleton />
       </section>
     );
   }
@@ -455,20 +401,18 @@ const StorefrontHero = ({ banners, cards, durationSec, loading, mode = 'auto' })
   // Empty state — no banners: show skeleton-like fallback but no crash
   if (activeBanners.length === 0) {
     return (
-      <section className="relative isolate overflow-hidden" style={{ background: HERO_SHELL_BG }}>
-        <div className="relative mx-auto w-full max-w-[2000px] px-3 md:px-5">
-          <HeroShellSkeleton />
-        </div>
+      <section className="hero-stage relative isolate overflow-hidden" style={{ background: HERO_SHELL_BG }}>
+        <HeroShellSkeleton />
       </section>
     );
   }
 
   return (
-    <section className="relative isolate overflow-hidden w-full max-w-full" style={{ background: HERO_SHELL_BG, maxWidth: '100%', overflow: 'clip' }}>
+    <section className="hero-stage relative isolate w-full max-w-full overflow-hidden" style={{ background: HERO_SHELL_BG, maxWidth: '100%', overflow: 'clip' }}>
       {/* Top soft blend — navbar dark surface flows into hero artwork */}
-      <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-8" style={{ background: 'linear-gradient(180deg, rgba(7,5,5,0.45) 0%, transparent 100%)' }} />
+      <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 z-10 h-8" style={{ background: 'linear-gradient(180deg, rgba(7,5,5,0.45) 0%, transparent 100%)' }} />
       {/* Hero is visually part of navbar — no hard gap, no bright separator */}
-      <div className="relative mx-auto w-full max-w-[2000px] px-3 md:px-5" style={{ maxWidth: 'min(100%, 2000px)' }}>
+      <div className={mode === 'auto' ? 'relative w-full max-w-full' : 'relative mx-auto w-full max-w-[420px]'}>
         {/* Both desktop and mobile now use the same cinematic hero — responsive via CSS.
             The mode prop (from Canvas preview) still works: if mode is desktop/mobile
             we force that rendering, otherwise auto renders the responsive hero. */}
@@ -483,8 +427,8 @@ const StorefrontHero = ({ banners, cards, durationSec, loading, mode = 'auto' })
           <CinematicHero banners={activeBanners} durationSec={durationSec} />
         )}
       </div>
-      {/* Bottom subtle dark dissolve — no bright white/gold glow, barely noticeable */}
-      <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-10" style={{ background: 'linear-gradient(180deg, transparent 0%, rgba(7,5,5,0.38) 55%, rgba(7,5,5,0.68) 100%)', opacity: 0.85 }} />
+      {/* Slim trust strip — the four hero assurances live here now, not in the hero */}
+      <HeroTrustStrip />
     </section>
   );
 };

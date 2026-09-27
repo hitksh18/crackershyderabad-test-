@@ -1,4 +1,4 @@
-import { useRef, useEffect, useCallback } from 'react';
+import { useRef, useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
 import ProductCard from '../ProductCard';
@@ -8,20 +8,15 @@ import useDragScroll from '../../hooks/useDragScroll';
 import { useReducedMotion } from '../../hooks/useReducedMotion';
 
 /**
- * Full-width product carousel with smooth continuous auto-scroll.
+ * Bounded horizontal product carousel.
  *
- * The rail renders products twice (original + duplicate) inside a native
- * overflow-x:auto container. A requestAnimationFrame loop incrementally
- * moves scrollLeft. When the scroll reaches the midpoint (start of the
- * duplicate set), it silently resets to 0 — the visual content is identical
- * so the reset is invisible.
+ * Each instance owns its own scroll container (railRef), so Featured
+ * Products and Best Sellers scroll independently. Arrows call scrollBy on
+ * that container only — they never touch window/document scrolling.
  *
- * Auto-scroll pauses on hover, touch, drag, and arrow interaction.
- * Resumes after 4 seconds of inactivity.
+ * Arrow state follows the container: left is disabled at the start, right
+ * is disabled at the end, and both hide when everything already fits.
  */
-const RESUME_DELAY = 4000;
-const SPEED = 30; // pixels per second
-
 const HomeProductRail = ({
   eyebrow,
   title,
@@ -32,99 +27,40 @@ const HomeProductRail = ({
   railLabel,
 }) => {
   const railRef = useRef(null);
-  const rafRef = useRef(null);
-  const pausedRef = useRef(false);
-  const resumeTimerRef = useRef(null);
-  const lastTimeRef = useRef(null);
   const reduced = useReducedMotion();
+  const [canLeft, setCanLeft] = useState(false);
+  const [canRight, setCanRight] = useState(false);
+  const [scrollable, setScrollable] = useState(false);
 
   useDragScroll(railRef);
 
-  const pause = useCallback(() => {
-    pausedRef.current = true;
-    if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
-  }, []);
-
-  const scheduleResume = useCallback(() => {
-    if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
-    resumeTimerRef.current = setTimeout(() => {
-      pausedRef.current = false;
-      lastTimeRef.current = null;
-    }, RESUME_DELAY);
-  }, []);
-
-  const handlePointerDown = useCallback(() => {
-    pause();
-  }, [pause]);
-
-  const handlePointerUp = useCallback(() => {
-    scheduleResume();
-  }, [scheduleResume]);
-
-  useEffect(() => {
+  const updateBounds = useCallback(() => {
     const el = railRef.current;
-    if (!el || reduced || !products || products.length < 2) return;
-
-    const animate = (time) => {
-      if (pausedRef.current) {
-        lastTimeRef.current = null;
-        rafRef.current = requestAnimationFrame(animate);
-        return;
-      }
-
-      if (lastTimeRef.current === null) {
-        lastTimeRef.current = time;
-        rafRef.current = requestAnimationFrame(animate);
-        return;
-      }
-
-      const delta = time - lastTimeRef.current;
-      lastTimeRef.current = time;
-
-      el.scrollLeft += SPEED * (delta / 1000);
-
-      const half = el.scrollWidth / 2;
-      if (el.scrollLeft >= half) {
-        el.scrollLeft -= half;
-      }
-
-      rafRef.current = requestAnimationFrame(animate);
-    };
-
-    rafRef.current = requestAnimationFrame(animate);
-
-    return () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    };
-  }, [products, reduced]);
+    if (!el) return;
+    const max = el.scrollWidth - el.clientWidth;
+    setScrollable(max > 2);
+    setCanLeft(el.scrollLeft > 2);
+    setCanRight(el.scrollLeft < max - 2);
+  }, []);
 
   useEffect(() => {
     const el = railRef.current;
     if (!el) return;
-
-    el.addEventListener('pointerdown', handlePointerDown);
-    el.addEventListener('pointerup', handlePointerUp);
-    el.addEventListener('pointercancel', handlePointerUp);
-    el.addEventListener('mouseenter', pause);
-    el.addEventListener('mouseleave', scheduleResume);
-
+    updateBounds();
+    el.addEventListener('scroll', updateBounds, { passive: true });
+    window.addEventListener('resize', updateBounds);
+    // Re-check after layout settles (fonts/images can shift widths).
+    const raf = requestAnimationFrame(updateBounds);
     return () => {
-      el.removeEventListener('pointerdown', handlePointerDown);
-      el.removeEventListener('pointerup', handlePointerUp);
-      el.removeEventListener('pointercancel', handlePointerUp);
-      el.removeEventListener('mouseenter', pause);
-      el.removeEventListener('mouseleave', scheduleResume);
+      el.removeEventListener('scroll', updateBounds);
+      window.removeEventListener('resize', updateBounds);
+      cancelAnimationFrame(raf);
     };
-  }, [handlePointerDown, handlePointerUp, pause, scheduleResume]);
-
-  useEffect(() => () => {
-    if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
-  }, []);
+  }, [updateBounds, products, loading]);
 
   const scrollRail = (dir) => {
     const el = railRef.current;
     if (!el) return;
-    pause();
     // Move by exactly one card (card width + the gap between cards) so the
     // arrow buttons step cleanly between complete cards instead of relying
     // on the browser's native page scroll.
@@ -135,12 +71,7 @@ const HomeProductRail = ({
       step = firstCard.offsetWidth + gap;
     }
     el.scrollBy({ left: dir * step, behavior: reduced ? 'auto' : 'smooth' });
-    scheduleResume();
   };
-
-  const loopProducts = products && products.length > 0
-    ? [...products, ...products]
-    : [];
 
   return (
     <>
@@ -150,24 +81,28 @@ const HomeProductRail = ({
         subtitle={subtitle}
         align="left"
         action={
-          <div className="hidden items-center gap-2 sm:flex">
-            <button
-              type="button"
-              onClick={() => scrollRail(-1)}
-              aria-label={`Scroll ${railLabel} left`}
-              className="arrow-btn"
-            >
-              <ChevronLeft className="h-5 w-5" strokeWidth={2.4} aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              onClick={() => scrollRail(1)}
-              aria-label={`Scroll ${railLabel} right`}
-              className="arrow-btn"
-            >
-              <ChevronRight className="h-5 w-5" strokeWidth={2.4} aria-hidden="true" />
-            </button>
-          </div>
+          scrollable ? (
+            <div className="hidden items-center gap-2 sm:flex">
+              <button
+                type="button"
+                onClick={() => scrollRail(-1)}
+                disabled={!canLeft}
+                aria-label={`Scroll ${railLabel} left`}
+                className="arrow-btn"
+              >
+                <ChevronLeft className="h-5 w-5" strokeWidth={2.4} aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                onClick={() => scrollRail(1)}
+                disabled={!canRight}
+                aria-label={`Scroll ${railLabel} right`}
+                className="arrow-btn"
+              >
+                <ChevronRight className="h-5 w-5" strokeWidth={2.4} aria-hidden="true" />
+              </button>
+            </div>
+          ) : null
         }
       />
 
@@ -187,8 +122,8 @@ const HomeProductRail = ({
             ))}
           </>
         ) : (
-          loopProducts.map((product, index) => (
-            <div key={`${product.id}-${index >= products.length ? 'dup' : 'orig'}`} className="rail-card">
+          (products || []).map((product) => (
+            <div key={product.id} className="rail-card">
               <ProductCard compact product={product} />
             </div>
           ))

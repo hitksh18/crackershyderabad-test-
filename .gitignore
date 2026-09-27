@@ -86,3 +86,4 @@ client/font-proof.html
 # Anchored to the repo root: only ignore root-level .env* files, never
 # client/.env (public Firebase web config, committed on purpose).
 /.env*
+!/.env.example

@@ -69,7 +69,7 @@ const pillStyle = (active) =>
 
 const gridClasses = {
   grid: 'grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 md:gap-5 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6',
-  list: 'grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-3 gap-x-5',
+  list: 'flex flex-col gap-3 sm:gap-4 min-w-0',
 };
 
 const Products = () => {
@@ -86,6 +86,17 @@ const Products = () => {
   const [dragId, setDragId] = useState(null);
   const [dragOverId, setDragOverId] = useState(null);
   const dirtyRef = useRef(false);
+
+  /* Products-only scrollbar treatment: hide the visible page scrollbar while
+     keeping normal document scrolling (wheel, trackpad, touch, keyboard all
+     operate on the document scroller, which stays overflow-y: auto). Scoped
+     via a class on <html> — removed on unmount — so admin pages, modals,
+     dropdowns and every internal scroll container are untouched. Mirrors the
+     homepage (.route-home) pattern. */
+  useEffect(() => {
+    document.documentElement.classList.add('route-products');
+    return () => document.documentElement.classList.remove('route-products');
+  }, []);
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -484,7 +495,7 @@ const Products = () => {
                       {sortByOrder(products).findIndex(p => p.id === product.id) + 1}
                     </span>
                   )}
-                  <ProductCard product={product} />
+                  <ProductCard product={product} viewMode={viewMode} />
                 </div>
               ))}
             </div>

@@ -17,17 +17,34 @@ jobs:
       - name: Generate sitemap
         run: node scripts/generate-sitemap.mjs
 
+      # Optional override: repository secrets win when they are set, but an
+      # *unset* secret must never blank out the committed
+      # client/.env.production values (public web config that ships in the
+      # browser bundle by design). Writing only non-empty values to the
+      # git-ignored .env.production.local achieves exactly that, because
+      # Vite loads it with the highest precedence in production mode.
+      - name: Apply Firebase secrets (optional override)
+        env:
+          FB_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
+          FB_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
+          FB_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+          FB_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
+          FB_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+          FB_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
+        run: |
+          touch client/.env.production.local
+          [ -n "$FB_API_KEY" ] && echo "VITE_FIREBASE_API_KEY=$FB_API_KEY" >> client/.env.production.local
+          [ -n "$FB_AUTH_DOMAIN" ] && echo "VITE_FIREBASE_AUTH_DOMAIN=$FB_AUTH_DOMAIN" >> client/.env.production.local
+          [ -n "$FB_PROJECT_ID" ] && echo "VITE_FIREBASE_PROJECT_ID=$FB_PROJECT_ID" >> client/.env.production.local
+          [ -n "$FB_STORAGE_BUCKET" ] && echo "VITE_FIREBASE_STORAGE_BUCKET=$FB_STORAGE_BUCKET" >> client/.env.production.local
+          [ -n "$FB_SENDER_ID" ] && echo "VITE_FIREBASE_MESSAGING_SENDER_ID=$FB_SENDER_ID" >> client/.env.production.local
+          [ -n "$FB_APP_ID" ] && echo "VITE_FIREBASE_APP_ID=$FB_APP_ID" >> client/.env.production.local
+          echo "VITE_BACKEND_API_URL=/api" >> client/.env.production.local
+
       - name: Build client
         run: |
           npm ci --prefix client --no-audit --no-fund
           npm run build --prefix client
-        env:
-          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
-          VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
-          VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
-          VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
-          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
-          VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
 
       - name: Package
         run: |

@@ -23,8 +23,10 @@ import ImagePlaceholder from './ImagePlaceholder';
  * Product card. With `compact` it is the full-width rail variant used by the
  * homepage carousels: shorter image panel (8:5), tighter paddings, two-line
  * title and a smaller CTA — while keeping the exact same card identity.
+ * With `viewMode="list"` it renders the same data/actions as a horizontal
+ * row (image left, info middle, cart action right; stacked on mobile).
  */
-const ProductCard = ({ product, compact = false }) => {
+const ProductCard = ({ product, compact = false, viewMode = 'grid' }) => {
   const { addToCart, cart, updateQuantity, removeFromCart } = useCart();
   const { isWishlisted, toggleWishlist } = useWishlist();
   const reduced = useReducedMotion();
@@ -76,6 +78,252 @@ const ProductCard = ({ product, compact = false }) => {
 
   const tap = tapFeedback(reduced);
   const morph = popoverVariants(reduced);
+
+  const categoryLabel = product.category
+    || (Array.isArray(product.categories) ? product.categories[0] : null)
+    || null;
+  const brandName = product.brand?.name || null;
+
+  const cartAction = (
+    <AnimatePresence mode="wait" initial={false}>
+      {quantityInCart === 0 ? (
+        <motion.div key="add" variants={morph} initial="hidden" animate="visible" exit="exit">
+          <motion.button
+            {...tap}
+            onClick={handleAddToCart}
+            disabled={outOfStock}
+            className="btn-primary w-full px-3 text-[13px] sm:text-sm"
+          >
+            {outOfStock ? (
+              <PackageX className="h-4 w-4 shrink-0" strokeWidth={2.4} />
+            ) : (
+              <ShoppingCart className="h-4 w-4 shrink-0" strokeWidth={2.4} />
+            )}
+            <span className="truncate">{outOfStock ? 'Out of Stock' : 'Add to Cart'}</span>
+          </motion.button>
+        </motion.div>
+      ) : (
+        <motion.div key="stepper" variants={morph} initial="hidden" animate="visible" exit="exit">
+          <div
+            className="flex items-stretch gap-1 rounded-[var(--r-md)] border p-1"
+            style={{ background: 'var(--surface-sunken)', borderColor: 'var(--hairline-strong)' }}
+          >
+            <motion.button
+              {...tap}
+              onClick={handleDecrease}
+              aria-label={
+                quantityInCart > 1
+                  ? `Decrease quantity of ${product.name}`
+                  : `Remove ${product.name} from cart`
+              }
+              className="flex min-h-[44px] flex-1 items-center justify-center rounded-[10px] border shadow-xs"
+              style={{
+                background: 'var(--surface-card)',
+                borderColor: 'var(--hairline)',
+                color: 'var(--ember-600)',
+              }}
+            >
+              <Minus className="h-4 w-4" strokeWidth={2.6} />
+            </motion.button>
+
+            <div
+              className="tabular flex min-h-[44px] flex-1 items-center justify-center text-base font-bold"
+              style={{ fontFamily: 'var(--font-display)', color: 'var(--text-strong)' }}
+            >
+              {quantityInCart}
+            </div>
+
+            <motion.button
+              {...tap}
+              onClick={handleIncrease}
+              disabled={outOfStock}
+              aria-label={`Increase quantity of ${product.name}`}
+              className="flex min-h-[44px] flex-1 items-center justify-center rounded-[10px] disabled:cursor-not-allowed disabled:opacity-50"
+              style={{
+                background: 'var(--grad-ember)',
+                color: '#FFFFFF',
+                boxShadow: 'var(--shadow-ember)',
+              }}
+            >
+              <Plus className="h-4 w-4" strokeWidth={2.6} />
+            </motion.button>
+          </div>
+
+          <motion.button
+            {...tap}
+            onClick={handleRemove}
+            aria-label={`Remove ${product.name} from cart`}
+            className="mt-1.5 flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-[var(--r-md)] border border-[color:var(--hairline)] text-[12px] font-semibold transition-colors hover:border-[color:var(--crimson-600)] hover:bg-[rgba(203,42,42,0.08)]"
+            style={{ color: 'var(--crimson-600)', fontFamily: 'var(--font-body)' }}
+          >
+            <Trash2 className="h-3.5 w-3.5 shrink-0" strokeWidth={2.2} />
+            Remove
+          </motion.button>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+
+  /* ---------------- List mode: horizontal row, same data + actions ----------------
+     Mobile stacks (image top, info, actions); sm+ is image left / info middle /
+     cart action right. No new data, colors, or actions — only layout. */
+  if (viewMode === 'list' && !compact) {
+    return (
+      <div className="group relative flex min-w-0 flex-col overflow-hidden card-premium glass-card sm:flex-row">
+        {/* Image — left on sm+, top on mobile */}
+        <div className="product-img-panel glass-img relative aspect-[16/10] w-full flex-shrink-0 sm:aspect-auto sm:min-h-[180px] sm:w-44 md:w-52 lg:w-56">
+          <Link
+            to={productPath(product)}
+            aria-label={product.name}
+            className="absolute inset-0 block"
+          >
+            {product.imageURL ? (
+              <img
+                src={product.imageURL}
+                alt={product.name}
+                loading="lazy"
+                draggable={false}
+                className="h-full w-full object-contain p-4 transition-transform duration-500 ease-out-expo group-hover:scale-[1.05]"
+              />
+            ) : (
+              <ImagePlaceholder />
+            )}
+          </Link>
+
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0"
+            style={{
+              background:
+                'radial-gradient(120% 90% at 50% 0%, transparent 55%, rgba(58, 11, 12, 0.09) 100%)',
+            }}
+          />
+
+          {hasDiscount && (
+            <div
+              className="ribbon tabular pointer-events-none"
+              style={{
+                background: 'var(--grad-gold)',
+                color: 'var(--maroon-900)',
+                boxShadow: '0 4px 14px rgba(190, 140, 54, 0.45)',
+              }}
+            >
+              {discountPercent}% OFF
+            </div>
+          )}
+
+          <button
+            onClick={handleWishlist}
+            aria-label={wished ? 'Remove from wishlist' : 'Add to wishlist'}
+            aria-pressed={wished}
+            className={`wishlist-btn absolute left-3 top-3 z-raised flex h-9 w-9 items-center justify-center rounded-[var(--r-pill)] border shadow-sm ${
+              wished
+                ? 'border-[color:rgba(255,253,248,0.7)]'
+                : 'border-[color:var(--hairline)] hover:border-[color:var(--ember-600)]'
+            }`}
+            style={
+              wished
+                ? { background: 'linear-gradient(135deg, #CB2A2A 0%, #AA1F1F 100%)' }
+                : { background: 'var(--surface-card)' }
+            }
+          >
+            <Heart
+              key={wished ? 'w' : 'u'}
+              className={wished ? 'heart-pop fill-current' : ''}
+              style={{
+                width: 16,
+                height: 16,
+                color: wished ? 'var(--white-soft)' : 'var(--text-muted)',
+              }}
+              strokeWidth={2.2}
+            />
+          </button>
+        </div>
+
+        {/* Info middle + action right */}
+        <div className="flex min-w-0 flex-1 flex-col p-3.5 sm:p-4 md:flex-row md:gap-4">
+          <div className="flex min-w-0 flex-1 flex-col">
+            <Link to={productPath(product)} className="mt-0.5 flex items-center">
+              <h3
+                className="card-title product-name line-clamp-2"
+                style={{ color: 'var(--text-strong)' }}
+              >
+                {product.name}
+              </h3>
+            </Link>
+
+            {(categoryLabel || brandName) && (
+              <p className="mt-1 truncate text-[11px] font-semibold tracking-wide" style={{ color: 'var(--text-muted)' }}>
+                {[categoryLabel, brandName].filter(Boolean).join('  •  ')}
+              </p>
+            )}
+
+            {(product.rating !== undefined || product.reviewCount !== undefined) && (
+              <div className="mt-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                <span className="inline-flex items-center gap-1">
+                  <Star
+                    className="h-3.5 w-3.5 shrink-0"
+                    style={{ color: 'var(--gold-400)' }}
+                    fill="currentColor"
+                    strokeWidth={0}
+                  />
+                  <span className="tabular text-[13px] font-bold" style={{ color: 'var(--text-strong)' }}>
+                    {Number(product.rating || 0).toFixed(1)}
+                  </span>
+                </span>
+                {product.reviewCount !== undefined && (
+                  <span className="tabular text-[11px]" style={{ color: 'var(--text-subtle)' }}>
+                    ({product.reviewCount} reviews)
+                  </span>
+                )}
+              </div>
+            )}
+
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              {outOfStock ? (
+                <span className="badge badge-crimson min-w-0">
+                  <PackageX className="hidden h-3.5 w-3.5 shrink-0 sm:inline-block" strokeWidth={2.4} />
+                  Out of Stock
+                </span>
+              ) : (
+                <span className="badge badge-leaf min-w-0">
+                  <PackageCheck className="hidden h-3.5 w-3.5 shrink-0 sm:inline-block" strokeWidth={2.4} />
+                  In Stock
+                </span>
+              )}
+            </div>
+
+            <div
+              className="mt-2.5 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 border-t pt-3"
+              style={{ borderColor: 'var(--hairline)' }}
+            >
+              <span
+                className="price text-xl font-bold leading-none md:text-2xl"
+                style={{ color: 'var(--ember-600)' }}
+              >
+                {inr(displayPrice)}
+              </span>
+              {hasDiscount && (
+                <span
+                  className="price text-sm leading-none line-through"
+                  style={{ color: 'var(--text-subtle)' }}
+                >
+                  {inr(product.onlinePrice)}
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div
+            className="mt-3 flex shrink-0 flex-col justify-center gap-2 border-t pt-3 md:mt-0 md:w-52 md:border-l md:border-t-0 md:pl-4 md:pt-0"
+            style={{ borderColor: 'var(--hairline)' }}
+          >
+            {cartAction}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
