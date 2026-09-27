@@ -177,10 +177,10 @@ const AdminDashboard = () => {
   const totalRevenue = orders.reduce((sum, o) => sum + (o.total || 0), 0);
 
   const kpis = [
-    { key: 'revenue', label: 'Total Revenue', value: totalRevenue, display: `₹${totalRevenue.toLocaleString('en-IN')}`, hint: 'All time', icon: TrendingUp, accent: 'var(--ember-600)' },
-    { key: 'orders', label: 'Total Orders', value: orders.length, display: String(orders.length), hint: 'All time', icon: ShoppingCart, accent: 'var(--gold-500)' },
-    { key: 'products', label: 'Total Products', value: products.length, display: String(products.length), hint: `${products.filter(p=>p.isFeatured).length} featured`, icon: Package, accent: 'var(--maroon-700)' },
-    { key: 'customers', label: 'Total Customers', value: usersCount, display: String(usersCount), hint: 'Registered', icon: Users, accent: 'var(--leaf-600)' },
+    { key: 'revenue', label: 'Total Revenue', short: 'Revenue', value: totalRevenue, display: `₹${totalRevenue.toLocaleString('en-IN')}`, hint: 'All time', icon: TrendingUp, accent: 'var(--ember-600)' },
+    { key: 'orders', label: 'Total Orders', short: 'Orders', value: orders.length, display: String(orders.length), hint: 'All time', icon: ShoppingCart, accent: 'var(--gold-500)' },
+    { key: 'products', label: 'Total Products', short: 'Products', value: products.length, display: String(products.length), hint: `${products.filter(p=>p.isFeatured).length} featured`, icon: Package, accent: 'var(--maroon-700)' },
+    { key: 'customers', label: 'Total Customers', short: 'Customers', value: usersCount, display: String(usersCount), hint: 'Registered', icon: Users, accent: 'var(--leaf-600)' },
   ];
 
   const allQuickActions = [...DEFAULT_QUICK_ACTIONS, ...customActions.map(c => ({ ...c, icon: iconMap[c.icon] || Package }))];
@@ -308,7 +308,7 @@ const AdminDashboard = () => {
                   <p className="text-sm font-semibold leading-tight" style={{ color: 'var(--gold-500)' }}>across Hyderabad!</p>
                 </div>
               </div>
-              <div className="text-right shrink-0">
+              <div className="hidden text-right shrink-0 sm:block">
                 <p className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>{today.weekday}</p>
                 <p className="text-sm font-bold" style={{ color: 'var(--text-strong)' }}>{today.date}</p>
               </div>
@@ -318,9 +318,15 @@ const AdminDashboard = () => {
 
         {/* KPI Cards - 80-90px, full width 4 cols */}
         <div className="grid shrink-0 grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-3">
-          {kpis.map(({ key, label, display, hint, icon: Icon, accent }) => (
+          {kpis.map(({ key, label, short, display, hint, icon: Icon, accent }) => (
             <div key={key} className="flex min-h-[88px] flex-col justify-center rounded-2xl border p-4 transition-colors duration-200" style={{ borderColor: 'var(--hairline)', background: 'var(--surface-card)', boxShadow: 'var(--shadow-sm)' }}>
-              <div className="flex items-start justify-between gap-2">
+              {/* Mobile: value-first stat tile (matches dashboard wireframe) */}
+              <div className="sm:hidden">
+                <p className="text-[20px] font-bold leading-none" style={{ color: 'var(--text-strong)' }}>{display}</p>
+                <p className="mt-1.5 text-xs" style={{ color: 'var(--text-muted)' }}>{short}</p>
+              </div>
+              {/* Desktop: label + value + hint with icon */}
+              <div className="hidden sm:flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <p className="text-[10px] uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>{label}</p>
                   <p className="mt-1.5 text-[20px] font-bold leading-none" style={{ color: 'var(--text-strong)' }}>{display}</p>
@@ -358,7 +364,7 @@ const AdminDashboard = () => {
                     </span>
                     <span>
                       <p className="text-sm font-semibold leading-tight" style={{ color: 'var(--text-strong)' }}>{action.label}</p>
-                      <p className="mt-1 line-clamp-2 text-xs leading-tight" style={{ color: 'var(--text-muted)' }}>{action.desc}</p>
+                        <p className="mt-1 hidden line-clamp-2 text-xs leading-tight sm:block" style={{ color: 'var(--text-muted)' }}>{action.desc}</p>
                     </span>
                   </Link>
                   {isCustom && (
@@ -399,7 +405,7 @@ const AdminDashboard = () => {
                     <div key={order.id} className="flex items-center justify-between gap-3 rounded-xl border px-3 py-3 transition-colors duration-200" style={{ borderColor: 'var(--hairline)', background: 'var(--surface-sunken)' }}>
                       <div className="min-w-0">
                         <p className="truncate text-sm font-medium" style={{ color: 'var(--text-strong)' }}>#{order.shortCode || order.id.slice(0, 8)} — {order.customer?.name || 'Customer'}</p>
-                        <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{order.createdAt?.toDate ? order.createdAt.toDate().toLocaleDateString() : new Date(order.createdAt).toLocaleDateString()} • ₹{(order.total||0).toLocaleString('en-IN')}</p>
+                        <p className="text-xs" style={{ color: 'var(--text-muted)' }}>₹{(order.total||0).toLocaleString('en-IN')} • {order.createdAt?.toDate ? order.createdAt.toDate().toLocaleDateString() : new Date(order.createdAt).toLocaleDateString()}</p>
                       </div>
                       <OrderStatusBadge status={order.status || 'Pending'} />
                     </div>
@@ -428,11 +434,12 @@ const AdminDashboard = () => {
                   {filteredTopProducts.map((product, idx) => (
                     <div key={product.id} className="flex items-center gap-3 rounded-xl border px-3 py-2.5 transition-colors duration-200" style={{ borderColor: 'var(--hairline)', background: 'var(--surface-sunken)' }}>
                       <span className="grid h-7 w-7 place-items-center rounded-lg text-xs font-bold" style={{ background: 'var(--surface-card)', border: '1px solid var(--hairline)', color: 'var(--text-strong)' }}>{idx + 1}</span>
-                      <img src={product.imageURL || '/images/website/nav-logo.png'} alt="" className="h-10 w-10 rounded-lg object-cover" style={{ border: '1px solid var(--hairline)' }} />
+                      <img src={product.imageURL || '/images/website/nav-logo.png'} alt="" className="hidden h-10 w-10 rounded-lg object-cover sm:block" style={{ border: '1px solid var(--hairline)' }} />
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium leading-tight" style={{ color: 'var(--text-strong)' }}>{product.name}</p>
                         <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{displayNameForCategory(product.category)} • {product.salesCount} sold</p>
                       </div>
+                      <span className="shrink-0 text-sm font-semibold sm:hidden" style={{ color: 'var(--text-strong)' }}>{product.salesCount}</span>
                     </div>
                   ))}
                 </div>
