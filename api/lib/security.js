@@ -87,6 +87,10 @@ const securityHeaders = (req, res, next) => {
   res.set('Referrer-Policy', 'no-referrer');
   res.set('Cross-Origin-Resource-Policy', 'cross-origin');
   res.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  // HSTS is enforced at the Nginx TLS layer in production; sending it here too
+  // is harmless on plain HTTP (browsers ignore it) and protects direct-:3001 hits.
+  res.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  res.set('X-Permitted-Cross-Domain-Policies', 'none');
   res.set(
     'Content-Security-Policy',
     "default-src 'none'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"

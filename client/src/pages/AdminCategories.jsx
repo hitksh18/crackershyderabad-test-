@@ -192,7 +192,7 @@ const AdminCategories = () => {
       <div className="min-h-screen bg-[var(--surface-page)]">
         <div className="mx-auto w-full max-w-[1600px] px-4 py-6 lg:px-8">
           <div className="h-9 w-44 animate-pulse rounded-full" style={{ background: 'var(--surface-sunken)' }} />
-          <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="cat-grid mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {Array.from({ length: 6 }).map((_, i) => (
               <Skeleton key={i} className="h-[72px] w-full" rounded="var(--r-md)" />
             ))}
@@ -385,7 +385,7 @@ const AdminCategories = () => {
             <div className="px-6 py-12 text-center"><Package className="mx-auto h-7 w-7" style={{ color: 'var(--text-subtle)' }} /><p className="mt-2 text-sm font-semibold" style={{ color: 'var(--text-body)' }}>No categories found.</p></div>
           </div>
         ) : (
-          <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="cat-grid mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {categories.map((cat) => {
               const count = countInCategory(cat);
               return (

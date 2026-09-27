@@ -7,7 +7,9 @@ import { auth } from '../firebase';
  * Client-side route guards decide what a user *sees*; this is what decides what
  * they can actually *do*.
  */
-const API_BASE = (import.meta.env.VITE_BACKEND_API_URL || '').replace(/\/+$/, '');
+const API_BASE = (
+  import.meta.env.VITE_BACKEND_API_URL || import.meta.env.VITE_API_URL || ''
+).replace(/\/+$/, '');
 
 export function apiUrl(path) {
   if (!path) return path;

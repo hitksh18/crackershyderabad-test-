@@ -23,6 +23,8 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 /tmp/logs/
+logs/
+.pm2/
 
 # OS files
 .DS_Store
@@ -54,7 +56,9 @@ attached_assets/
 
 # Deployment archives (may embed build-time configuration)
 hostinger-deploy.zip
+deploy-latest.tar.gz
 *.zip
+*.tar.gz
 
 # Testing
 coverage/
@@ -87,3 +91,5 @@ client/font-proof.html
 # client/.env (public Firebase web config, committed on purpose).
 /.env*
 !/.env.example
+# Local production overlay used by CI deploys — never commit.
+client/.env.production.local

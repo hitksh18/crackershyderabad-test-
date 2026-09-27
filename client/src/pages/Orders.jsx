@@ -462,8 +462,6 @@ const Orders = () => {
     );
   }
 
-  const gridCols = '0.85fr 1.4fr 0.55fr 0.7fr 0.95fr 0.85fr 1.55fr';
-
   return (
     <div className="min-h-screen bg-[var(--surface-page)] text-[var(--text-body)] transition-colors duration-200 overflow-x-hidden">
       <CustomModal
@@ -475,7 +473,7 @@ const Orders = () => {
 
       {/* Dedicated Orders Navbar - ONE navbar: Back, Search, Centered Title, Status, Date, Delete */}
       <header className="sticky top-0 z-30 flex min-h-[60px] w-full shrink-0 items-center border-b bg-[var(--surface-card)] px-4 py-2 transition-colors duration-200 lg:px-8" style={{ borderColor: 'var(--hairline)' }}>
-        <div className="mx-auto flex w-full max-w-[1550px] flex-wrap items-center gap-3 lg:flex-nowrap lg:gap-4">
+        <div className="orders-head mx-auto flex w-full max-w-[1550px] flex-wrap items-center gap-3 lg:flex-nowrap lg:gap-4">
           <Link
             to="/admin/dashboard"
             className="inline-flex shrink-0 items-center gap-1.5 text-xs font-semibold transition-colors duration-200"
@@ -497,7 +495,7 @@ const Orders = () => {
             />
           </div>
 
-          <h1 className="pointer-events-none absolute left-1/2 hidden -translate-x-1/2 text-sm font-bold tracking-tight lg:block" style={{ color: 'var(--text-strong)', fontFamily: 'var(--font-display)' }}>
+          <h1 className="orders-title pointer-events-none absolute left-1/2 hidden -translate-x-1/2 text-sm font-bold tracking-tight lg:block" style={{ color: 'var(--text-strong)', fontFamily: 'var(--font-display)' }}>
             Orders Management
           </h1>
 
@@ -594,13 +592,13 @@ const Orders = () => {
           <>
             {/* Desktop table - grid aligned, full width, no clipping */}
             <div
-              className="mt-3 hidden overflow-hidden rounded-2xl border md:block transition-colors duration-200"
+              className="orders-table-card mt-3 hidden overflow-hidden rounded-2xl border md:block transition-colors duration-200"
               style={{ borderColor: 'var(--hairline)', background: 'var(--surface-card)' }}
             >
-              {/* Header */}
+              {/* Header — column proportions live in .orders-grid (see admin-portrait.css) */}
               <div
-                className="grid items-center gap-2 px-3 py-2.5 text-[11px] font-bold uppercase tracking-widest"
-                style={{ gridTemplateColumns: gridCols, background: 'var(--surface-sunken)', color: 'var(--text-muted)', borderBottom: '1px solid var(--hairline)' }}
+                className="orders-grid grid items-center gap-2 px-3 py-2.5 text-[11px] font-bold uppercase tracking-widest"
+                style={{ background: 'var(--surface-sunken)', color: 'var(--text-muted)', borderBottom: '1px solid var(--hairline)' }}
               >
                 <div>Order</div>
                 <div>Customer</div>
@@ -615,8 +613,8 @@ const Orders = () => {
                 {filteredVisibleOrders.map((order) => (
                   <div
                     key={order.id}
-                    className="grid items-center gap-2 px-3 py-2.5 transition-colors duration-200 hover:bg-[var(--surface-sunken)]/60"
-                    style={{ gridTemplateColumns: gridCols, minHeight: '62px' }}
+                    className="orders-grid grid items-center gap-2 px-3 py-2.5 transition-colors duration-200 hover:bg-[var(--surface-sunken)]/60"
+                    style={{ minHeight: '62px' }}
                   >
                     {/* ORDER */}
                     <div className="min-w-0">

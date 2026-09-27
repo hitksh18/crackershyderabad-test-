@@ -294,8 +294,6 @@ const UserManagement = () => {
     );
   }
 
-  const gridCols = 'minmax(280px,1.9fr) minmax(110px,0.85fr) minmax(100px,0.85fr) minmax(120px,0.85fr) minmax(120px,0.9fr) minmax(130px,0.9fr) minmax(300px,1.35fr)';
-
   return (
     <div className="min-h-screen bg-[var(--surface-page)] text-[var(--text-body)] transition-colors duration-200 overflow-x-hidden">
       {/* Dedicated Navbar */}
@@ -352,9 +350,9 @@ const UserManagement = () => {
         </div>
 
         {/* User list */}
-        <div className="mt-3 overflow-hidden rounded-2xl border" style={{ borderColor: 'var(--hairline)', background: 'var(--surface-card)' }}>
-          {/* Header - desktop */}
-          <div className="hidden items-center gap-2 px-3 py-2.5 text-[11px] font-bold uppercase tracking-widest lg:grid" style={{ gridTemplateColumns: gridCols, background: 'var(--surface-sunken)', color: 'var(--text-muted)', borderBottom: '1px solid var(--hairline)' }}>
+        <div className="users-table-card mt-3 overflow-hidden rounded-2xl border" style={{ borderColor: 'var(--hairline)', background: 'var(--surface-card)' }}>
+          {/* Header - desktop (column proportions in .users-grid, see admin-portrait.css) */}
+          <div className="users-grid hidden items-center gap-2 px-3 py-2.5 text-[11px] font-bold uppercase tracking-widest lg:grid" style={{ background: 'var(--surface-sunken)', color: 'var(--text-muted)', borderBottom: '1px solid var(--hairline)' }}>
             <div>User</div>
             <div>Role</div>
             <div>Auth</div>
@@ -408,7 +406,7 @@ const UserManagement = () => {
                     </div>
 
                     {/* Desktop grid */}
-                    <div className="hidden lg:grid lg:items-center lg:gap-2" style={{ gridTemplateColumns: gridCols }}>
+                    <div className="users-grid hidden lg:grid lg:items-center lg:gap-2">
                       <div className="flex min-w-0 items-center gap-2.5">
                         <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full" style={{ background: 'var(--surface-sunken)', border: '1px solid var(--hairline)' }}>
                           {user.photoURL ? <img src={user.photoURL} alt="" className="h-8 w-8 rounded-full object-cover" /> : <RoleIcon className="h-4 w-4" style={{ color: 'var(--text-muted)' }} />}
@@ -427,7 +425,7 @@ const UserManagement = () => {
                       </div>
                       <div className="tabular text-xs" style={{ color: 'var(--text-muted)' }}>{formatDate(user.creationTime)}</div>
                       <div className="tabular text-xs" style={{ color: 'var(--text-muted)' }}>{user.lastSignInTime ? formatDate(user.lastSignInTime) : 'Never'}</div>
-                      <div className="flex flex-nowrap items-center justify-end gap-1.5 whitespace-nowrap" style={{ whiteSpace: 'nowrap' }}>
+                      <div className="users-actions flex flex-nowrap items-center justify-end gap-1.5 whitespace-nowrap" style={{ whiteSpace: 'nowrap' }}>
                         <button type="button" onClick={() => { setEditingUser(user); setNewRole(roles[user.uid]||'customer'); }} className="inline-flex h-8 items-center gap-1 whitespace-nowrap rounded-full border px-2.5 text-xs font-semibold" style={{ borderColor: 'var(--hairline)', background: 'var(--surface-card)', color: 'var(--text-body)' }}><Pencil className="h-3 w-3" />Change</button>
                         {user.providers?.includes('password') && <button type="button" onClick={() => handleResetPassword(user)} className="inline-flex h-8 items-center gap-1 whitespace-nowrap rounded-full border px-2.5 text-xs font-semibold" style={{ borderColor: 'var(--hairline)', background: 'var(--surface-card)' }}><Key className="h-3 w-3" />Reset</button>}
                         {!isCurrent && (user.disabled ? <button type="button" onClick={() => handleDisableUser(user,false)} className="inline-flex h-8 items-center gap-1 whitespace-nowrap rounded-full border px-2.5 text-xs font-semibold" style={{ color: 'var(--leaf-600)', border: '1px solid var(--hairline)', background: 'var(--surface-card)' }}><Check className="h-3 w-3" />Enable</button> : <button type="button" onClick={() => setActionModal({type:'disable',user})} className="inline-flex h-8 items-center gap-1 whitespace-nowrap rounded-full border px-2.5 text-xs font-semibold" style={{ color: 'var(--gold-600)', border: '1px solid var(--hairline)', background: 'var(--surface-card)' }}><Ban className="h-3 w-3" />Disable</button>)}

@@ -76,8 +76,8 @@ const ProductForm = ({
         )}
 
         <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-3 min-h-0">
-          {/* IDENTITY + MEDIA - 58-62% / 38-42% */}
-          <div className="grid shrink-0 gap-4 lg:grid-cols-[1.3fr_0.7fr]">
+          {/* IDENTITY + MEDIA - 58-62% / 38-42% (stacked in portrait-desktop, see admin-portrait.css) */}
+          <div className="pf-idmedia grid shrink-0 gap-4 lg:grid-cols-[1.3fr_0.7fr]">
             {/* Identity */}
             <div className="rounded-2xl border bg-[var(--surface-card)] p-4" style={{ borderColor: 'var(--hairline)', boxShadow: 'var(--shadow-sm)' }}>
               <div className="mb-4 flex items-center gap-2">
@@ -226,8 +226,8 @@ const ProductForm = ({
             <ProductPriceFields formData={formData} onChange={onFieldChange} onBlur={onMarkTouched} errors={errors} />
           </div>
 
-          {/* CATEGORY | AVAILABILITY | SEO - 3 cols */}
-          <div className="grid gap-4 lg:grid-cols-3">
+          {/* CATEGORY | AVAILABILITY | SEO - 3 cols (2 cols + full-width SEO in portrait-desktop) */}
+          <div className="pf-trio grid gap-4 lg:grid-cols-3">
             <div className="rounded-2xl border bg-[var(--surface-card)] p-4" style={{ borderColor: 'var(--hairline)', boxShadow: 'var(--shadow-sm)' }}>
               <div className="mb-3 flex items-center gap-2">
                 <span className="grid h-7 w-7 place-items-center rounded-lg" style={{ background: 'var(--surface-sunken)', border: '1px solid var(--hairline)' }}>

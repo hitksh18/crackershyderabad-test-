@@ -18,17 +18,17 @@ const AdminTopBar = ({ searchValue = '', onSearchChange, showSearch = true, onNo
 
   return (
     <>
-      <header className="sticky top-0 z-40 flex h-[64px] w-full shrink-0 items-center gap-3 border-b bg-[var(--surface-card)] px-4 transition-colors duration-200 lg:px-8 xl:px-10" style={{ borderColor: 'var(--hairline)' }}>
+      <header className="admin-topbar sticky top-0 z-40 flex h-[64px] w-full shrink-0 items-center gap-3 border-b bg-[var(--surface-card)] px-4 transition-colors duration-200 lg:px-8 xl:px-10" style={{ borderColor: 'var(--hairline)' }}>
         <Link to="/" className="flex shrink-0 items-center gap-2.5">
           <img src="/images/website/nav-logo.png" alt="Crackers Hyderabad" width={36} height={36} className="h-9 w-9 rounded-full" />
-          <span className="hidden text-[15px] font-bold tracking-tight sm:block" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-strong)' }}>
+          <span className="admin-topbar-name hidden text-[15px] font-bold tracking-tight sm:block" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-strong)' }}>
             Crackers <span style={{ color: 'var(--gold-500)' }}>Hyderabad</span>
           </span>
         </Link>
 
         {showSearch ? (
-          <div className="mx-2 hidden flex-1 justify-center lg:flex">
-            <div className="relative w-full max-w-[560px]">
+          <div className="admin-topbar-search mx-2 hidden flex-1 justify-center lg:flex">
+            <div className="admin-topbar-searchbox relative w-full max-w-[560px]">
               <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2" style={{ color: 'var(--text-subtle)' }} />
               <input
                 value={searchValue}

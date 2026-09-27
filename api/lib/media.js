@@ -28,6 +28,7 @@ const ALLOWED_IMAGE_TYPES = {
 
 function getMediaRoot() {
   if (process.env.MEDIA_ROOT) return process.env.MEDIA_ROOT;
+  if (process.env.UPLOAD_DIR) return process.env.UPLOAD_DIR;
   if (process.env.KVM_MEDIA_ROOT) return process.env.KVM_MEDIA_ROOT;
   // On Windows dev, prod path does not exist — use local folder under api/media
   return DEFAULT_MEDIA_ROOT;

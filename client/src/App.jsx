@@ -133,6 +133,7 @@ function AppContent() {
             immediately stable on load/refresh. */}
         <motion.div
           key={location.pathname}
+          className="admin-route-wrap"
           variants={pageVariants(reduced)}
           initial={isProductsPage ? false : 'initial'}
           animate={isProductsPage ? undefined : 'animate'}

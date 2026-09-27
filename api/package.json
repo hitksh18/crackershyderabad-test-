@@ -6,10 +6,11 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node --watch server.js"
+    "dev": "node --watch server.js",
+    "health": "node -e \"fetch(`http://127.0.0.1:${process.env.PORT||3001}/api/health`).then(r=>r.text().then(t=>{console.log(r.status,t);process.exit(r.ok?0:1)})).catch(e=>{console.error(e.message);process.exit(1)})\""
   },
   "engines": {
-    "node": ">=20"
+    "node": "22.x"
   },
   "dependencies": {
     "cors": "^2.8.5",

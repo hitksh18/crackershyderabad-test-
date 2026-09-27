@@ -1,0 +1,274 @@
+/* =========================================================================
+   BASE GRID PROPORTIONS (all viewports)
+   -------------------------------------------------------------------------
+   The Orders and Users tables previously carried their column templates as
+   inline styles. They now live here as classes so the portrait layer below
+   can refine them; values are byte-identical to the original inline grids,
+   so landscape/mobile rendering is unchanged.
+   ========================================================================= */
+
+.orders-grid {
+  grid-template-columns:
+    0.85fr   /* Order    */
+    1.4fr    /* Customer */
+    0.55fr   /* Items    */
+    0.7fr    /* Total    */
+    0.95fr   /* Status   */
+    0.85fr   /* Placed   */
+    1.55fr;  /* Actions  */
+}
+
+.users-grid {
+  grid-template-columns:
+    minmax(280px, 1.9fr)   /* User         */
+    minmax(110px, 0.85fr)  /* Role         */
+    minmax(100px, 0.85fr)  /* Auth         */
+    minmax(120px, 0.85fr)  /* Status       */
+    minmax(120px, 0.9fr)   /* Created      */
+    minmax(130px, 0.9fr)   /* Last sign-in */
+    minmax(300px, 1.35fr); /* Actions      */
+}
+
+/* =========================================================================
+   DESKTOP-PORTRAIT ADMIN LAYER
+   -------------------------------------------------------------------------
+   Dedicated layout mode for a portrait PC monitor. Physical resolution is
+   NOT trusted: Windows display scaling and browser chrome can make a
+   1080x1920 panel report a CSS viewport well below 1024px (e.g. ~864px),
+   so width is deliberately NOT the desktop detector. Instead:
+
+     orientation: portrait   — excludes landscape desktop/mobile landscape
+     hover: hover            — excludes touch-primary phones/tablets
+     pointer: fine           — excludes touch-primary phones/tablets
+     min-height: 900px       — excludes phones (844px tall max) and short
+                               windows; portrait monitors report 1500px+
+
+   This can never match landscape desktop, mobile portrait, or mobile
+   landscape. Short portrait windows (<900px tall) gracefully fall back to
+   the width-based lg/md rules.
+
+   Mechanism: UNLAYERED plain CSS, so these scoped rules win over layered
+   Tailwind `lg:` utilities without `!important`, and only inside this
+   query. Reflow only — no typography, color, or component changes.
+
+   The two real overflow causes this fixes (see dashboard screenshot):
+   1. Plain `fr` tracks (e.g. lg:grid-cols-[1.35fr_0.9fr]) carry an
+      intrinsic minimum, so grids blow past the viewport. Every portrait
+      track uses minmax(0, ...) instead.
+   2. Flex items default to min-width: auto, which propagates content width
+      up the flex chain (route wrapper, page root, content, panels). Every
+      flex-chain link and grid child gets min-width: 0 in portrait.
+   ========================================================================= */
+
+@media (orientation: portrait) and (hover: hover) and (pointer: fine) and (min-height: 900px) {
+
+  /* ---- Flex-chain shrinkability (the actual overflow fix) ----
+     Every link from the viewport to the content must be allowed to shrink
+     below its content's intrinsic width. */
+  .admin-route-wrap {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    min-width: 0;
+  }
+
+  .admin-dashboard,
+  .dash-content,
+  .dash-panels {
+    min-width: 0;
+  }
+
+  /* One blanket rule: no grid child in the portrait admin may force its
+     grid wider than the tracks. */
+  .dash-content > *,
+  .dash-panels > *,
+  .dash-kpi-grid > *,
+  .dash-qa-grid > *,
+  .orders-grid > *,
+  .users-grid > *,
+  .dash-order-row > *,
+  .dash-top-row > * {
+    min-width: 0;
+  }
+
+  /* Page-level final safety net ONLY (layout is fixed above, this merely
+     guarantees no page-level scrollbar; inner scrollers are untouched). */
+  body {
+    overflow-x: clip;
+  }
+
+  /* ------------------------- DASHBOARD SHELL ------------------------- */
+  .dash-content {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    gap: 1.5rem;
+    padding: 1.25rem 1rem 1.75rem;
+  }
+
+  /* Welcome/banner pair stacks below lg widths automatically (base 1fr);
+     this hook exists so the nested wide-portrait rule can refine it. */
+  .dash-banner {
+    min-height: 104px;
+    min-width: 0;
+  }
+
+  /* ------------------------- KPI CARDS ------------------------------- */
+  .dash-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dash-kpi {
+    min-height: 122px;
+    padding: 1.125rem 1.25rem;
+    box-sizing: border-box;
+  }
+
+  /* ------------------------- QUICK ACTIONS --------------------------- */
+  .dash-qa-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+  }
+
+  .dash-qa {
+    min-height: 138px;
+    padding: 1.125rem;
+    box-sizing: border-box;
+  }
+
+  /* ------------------------- MAIN PANELS -----------------------------
+     Stacked by default (always fits). Two columns only when the portrait
+     viewport is wide enough, with shrinkable tracks. */
+  .dash-panels {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.25rem;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .dash-panels > section {
+    padding: 1.25rem;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .dash-order-row {
+    min-height: 78px;
+    padding-block: 0.9rem;
+  }
+
+  .dash-top-row {
+    padding-block: 0.85rem;
+  }
+
+  /* ------------------------- ADMIN TOP BAR ---------------------------
+     Search must shrink (it is the flexible element); pills and icons keep
+     fixed size and never wrap. */
+  .admin-topbar,
+  .admin-topbar-search,
+  .admin-topbar-searchbox {
+    min-width: 0;
+  }
+
+  /* ------------------------- ORDERS (/admin/orders) ------------------ */
+  .orders-grid {
+    grid-template-columns:
+      minmax(0, 0.8fr)
+      minmax(0, 1.15fr)
+      minmax(0, 0.5fr)
+      minmax(0, 0.7fr)
+      minmax(0, 0.95fr)
+      minmax(0, 0.8fr)
+      minmax(0, 1.2fr);
+  }
+
+  /* Internal table scroll as a safety layer: the desktop table is kept,
+     the page never scrolls. */
+  .orders-table-card,
+  .users-table-card {
+    overflow-x: auto;
+  }
+
+  .orders-head {
+    flex-wrap: wrap;
+    row-gap: 0.625rem;
+  }
+
+  .orders-title {
+    display: none;
+  }
+
+  /* --------------------- USER MANAGEMENT (/admin/users) -------------- */
+  .users-grid {
+    grid-template-columns:
+      minmax(200px, 1.9fr)
+      minmax(90px, 0.8fr)
+      minmax(80px, 0.7fr)
+      minmax(100px, 0.8fr)
+      minmax(100px, 0.85fr)
+      minmax(110px, 0.85fr)
+      minmax(250px, 1.25fr);
+  }
+
+  .users-actions {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    row-gap: 0.375rem;
+  }
+
+  /* --------------------- ADD PRODUCT (ProductForm) ------------------- */
+  .pf-idmedia {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .pf-trio {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .pf-trio > :last-child {
+    grid-column: span 2;
+  }
+
+  /* ------------------- CATEGORIES (/admin/categories) ---------------- */
+  .cat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  /* -------- HOMEPAGE CANVAS (/admin/homepage) — see canvas.css --------
+     .cv-workspace stacks to Controls over Preview there. */
+
+  /* ---- Wide portrait (CSS viewport >= 1000px): two-column panels ------
+     Nested query = dynamic choice per the spec: stacked below, side by
+     side above, always with shrinkable tracks. */
+  @media (min-width: 1000px) {
+    .dash-panels {
+      grid-template-columns: minmax(0, 1.35fr) minmax(0, 0.9fr);
+    }
+
+    .dash-topgrid {
+      grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+    }
+  }
+
+  /* ---- Wide portrait header (>= lg widths): the centered search plus
+     pills exceed ~1024px, so the brand name hides (logo remains) and the
+     search caps at 340px. Below lg the header search is not rendered. */
+  @media (min-width: 1024px) {
+    .admin-topbar-name {
+      display: none;
+    }
+
+    .admin-topbar-searchbox {
+      max-width: 340px;
+    }
+  }
+
+  /* ---- Extremely narrow portrait: single-column KPI fallback --------- */
+  @media (max-width: 599px) {
+    .dash-kpi-grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+}

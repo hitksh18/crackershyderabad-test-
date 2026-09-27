@@ -92,6 +92,23 @@ const AdminDashboard = () => {
   const { user, loading: authLoading } = useAuth();
   const [adminName, setAdminName] = useState(null);
 
+  /* Portrait-desktop composition (portrait PC monitors) shows more list
+     rows instead of stretching few rows across a tall viewport. Gated on
+     the desktop-portrait detector (see admin-portrait.css): physical
+     resolution is NOT trusted, so there is no min-width here. Landscape
+     and mobile keep exactly 5. Presentational only — same data. */
+  const PORTRAIT_DESKTOP_MQ = '(orientation: portrait) and (hover: hover) and (pointer: fine) and (min-height: 900px)';
+  const [isPortraitDesktop, setIsPortraitDesktop] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia(PORTRAIT_DESKTOP_MQ).matches
+  );
+
+  useEffect(() => {
+    const mq = window.matchMedia(PORTRAIT_DESKTOP_MQ);
+    const onChange = (e) => setIsPortraitDesktop(e.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     const resolveName = async () => {
@@ -172,7 +189,7 @@ const AdminDashboard = () => {
   const topProducts = products
     .filter(p => p.salesCount > 0)
     .sort((a, b) => (b.salesCount || 0) - (a.salesCount || 0))
-    .slice(0, 5);
+    .slice(0, isPortraitDesktop ? 10 : 5);
 
   const totalRevenue = orders.reduce((sum, o) => sum + (o.total || 0), 0);
 
@@ -191,7 +208,7 @@ const AdminDashboard = () => {
     return (order.customer?.name || '').toLowerCase().includes(q)
       || String(order.shortCode || order.id || '').toLowerCase().includes(q)
       || (order.status || '').toLowerCase().includes(q);
-  }).slice(0, 5);
+  }).slice(0, isPortraitDesktop ? 10 : 5);
 
   const filteredTopProducts = topProducts.filter(product => {
     const q = globalSearch.trim().toLowerCase();
@@ -268,13 +285,13 @@ const AdminDashboard = () => {
   }
 
   return (
-    <div className="flex flex-1 flex-col min-h-0 overflow-hidden bg-[var(--surface-page)] text-[var(--text-body)] transition-colors duration-200">
+    <div className="admin-dashboard flex flex-1 flex-col min-h-0 overflow-hidden bg-[var(--surface-page)] text-[var(--text-body)] transition-colors duration-200">
       <AdminTopBar searchValue={globalSearch} onSearchChange={setGlobalSearch} onNotificationClick={() => setNotificationOpen(true)} />
 
       {/* Dashboard Content - viewport fit: header(68) + content(remaining) grid auto/auto/auto/1fr */}
-      <div className="mx-auto flex w-full max-w-[1800px] flex-1 flex-col min-h-0 gap-3 px-4 py-3 lg:px-8 xl:px-10 lg:py-4">
+      <div className="dash-content mx-auto flex w-full max-w-[1800px] flex-1 flex-col min-h-0 gap-3 px-4 py-3 lg:px-8 xl:px-10 lg:py-4">
         {/* Header + Banner - 65-80px compact */}
-        <div className="grid shrink-0 gap-3 lg:grid-cols-[1.2fr_0.8fr]">
+        <div className="dash-topgrid grid shrink-0 gap-3 lg:grid-cols-[1.2fr_0.8fr]">
           <div className="flex min-h-[72px] flex-col justify-center">
             <p className="text-xs uppercase tracking-[0.14em]" style={{ color: 'var(--text-muted)' }}>Welcome back,</p>
             <h1 className="mt-1 break-words text-[22px] font-bold leading-none tracking-tight lg:text-[24px]" style={{ color: 'var(--text-strong)', fontFamily: 'var(--font-display)' }}>{adminName || 'Admin'}</h1>
@@ -295,7 +312,7 @@ const AdminDashboard = () => {
           </div>
 
           {/* Calendar / Promo Banner - compact, brand */}
-          <div className="relative flex min-h-[72px] items-center overflow-hidden rounded-2xl border p-4 transition-colors duration-200" style={{ borderColor: 'var(--hairline)', background: 'var(--surface-card)', boxShadow: 'var(--shadow-sm)' }}>
+          <div className="dash-banner relative flex min-h-[72px] items-center overflow-hidden rounded-2xl border p-4 transition-colors duration-200" style={{ borderColor: 'var(--hairline)', background: 'var(--surface-card)', boxShadow: 'var(--shadow-sm)' }}>
             <div className="absolute inset-0 opacity-20" style={{ background: 'var(--grad-festive)' }} />
             <div className="absolute inset-0 opacity-10" style={{ background: 'radial-gradient(60% 80% at 85% 20%, var(--gold-400), transparent)' }} />
             <div className="relative flex w-full items-center justify-between gap-4">
@@ -317,9 +334,9 @@ const AdminDashboard = () => {
         </div>
 
         {/* KPI Cards - 80-90px, full width 4 cols */}
-        <div className="grid shrink-0 grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-3">
+        <div className="dash-kpi-grid grid shrink-0 grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-3">
           {kpis.map(({ key, label, short, display, hint, icon: Icon, accent }) => (
-            <div key={key} className="flex min-h-[88px] flex-col justify-center rounded-2xl border p-4 transition-colors duration-200" style={{ borderColor: 'var(--hairline)', background: 'var(--surface-card)', boxShadow: 'var(--shadow-sm)' }}>
+            <div key={key} className="dash-kpi flex min-h-[88px] flex-col justify-center rounded-2xl border p-4 transition-colors duration-200" style={{ borderColor: 'var(--hairline)', background: 'var(--surface-card)', boxShadow: 'var(--shadow-sm)' }}>
               {/* Mobile: value-first stat tile (matches dashboard wireframe) */}
               <div className="sm:hidden">
                 <p className="text-[20px] font-bold leading-none" style={{ color: 'var(--text-strong)' }}>{display}</p>
@@ -352,12 +369,12 @@ const AdminDashboard = () => {
             </button>
           </div>
 
-          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          <div className="dash-qa-grid mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
             {allQuickActions.map((action) => {
               const Icon = action.icon;
               const isCustom = !action.system;
               return (
-                <div key={action.id} className="group relative flex min-h-[96px] flex-col rounded-2xl border p-4 transition hover:scale-[1.01] transition-colors duration-200" style={{ borderColor: 'var(--hairline)', background: 'var(--surface-sunken)' }}>
+                <div key={action.id} className="dash-qa group relative flex min-h-[96px] flex-col rounded-2xl border p-4 transition hover:scale-[1.01] transition-colors duration-200" style={{ borderColor: 'var(--hairline)', background: 'var(--surface-sunken)' }}>
                   <Link to={action.to} className="flex flex-1 flex-col gap-2.5">
                     <span className="grid h-8 w-8 place-items-center rounded-xl" style={{ background: 'var(--surface-card)', border: '1px solid var(--hairline)' }}>
                       <Icon className="h-4 w-4" style={{ color: 'var(--ember-600)' }} />
@@ -384,7 +401,7 @@ const AdminDashboard = () => {
         </section>
 
         {/* Recent Orders + Top Products - fill remaining height, internal scroll only if needed */}
-        <div className="grid flex-1 min-h-0 gap-3 lg:grid-cols-[1.35fr_0.9fr]">
+        <div className="dash-panels grid flex-1 min-h-0 gap-3 lg:grid-cols-[1.35fr_0.9fr]">
           {/* Recent Orders */}
           <section className="flex min-h-[260px] flex-col rounded-2xl border p-4 transition-colors duration-200 lg:p-5" style={{ borderColor: 'var(--hairline)', background: 'var(--surface-card)', boxShadow: 'var(--shadow-sm)' }}>
             <div className="mb-3 flex shrink-0 items-center justify-between">
@@ -402,7 +419,7 @@ const AdminDashboard = () => {
               ) : (
                 <div className="space-y-2">
                   {filteredOrders.map((order) => (
-                    <div key={order.id} className="flex items-center justify-between gap-3 rounded-xl border px-3 py-3 transition-colors duration-200" style={{ borderColor: 'var(--hairline)', background: 'var(--surface-sunken)' }}>
+                    <div key={order.id} className="dash-order-row flex items-center justify-between gap-3 rounded-xl border px-3 py-3 transition-colors duration-200" style={{ borderColor: 'var(--hairline)', background: 'var(--surface-sunken)' }}>
                       <div className="min-w-0">
                         <p className="truncate text-sm font-medium" style={{ color: 'var(--text-strong)' }}>#{order.shortCode || order.id.slice(0, 8)} — {order.customer?.name || 'Customer'}</p>
                         <p className="text-xs" style={{ color: 'var(--text-muted)' }}>₹{(order.total||0).toLocaleString('en-IN')} • {order.createdAt?.toDate ? order.createdAt.toDate().toLocaleDateString() : new Date(order.createdAt).toLocaleDateString()}</p>
@@ -432,7 +449,7 @@ const AdminDashboard = () => {
               ) : (
                 <div className="space-y-2">
                   {filteredTopProducts.map((product, idx) => (
-                    <div key={product.id} className="flex items-center gap-3 rounded-xl border px-3 py-2.5 transition-colors duration-200" style={{ borderColor: 'var(--hairline)', background: 'var(--surface-sunken)' }}>
+                    <div key={product.id} className="dash-top-row flex items-center gap-3 rounded-xl border px-3 py-2.5 transition-colors duration-200" style={{ borderColor: 'var(--hairline)', background: 'var(--surface-sunken)' }}>
                       <span className="grid h-7 w-7 place-items-center rounded-lg text-xs font-bold" style={{ background: 'var(--surface-card)', border: '1px solid var(--hairline)', color: 'var(--text-strong)' }}>{idx + 1}</span>
                       <img src={product.imageURL || '/images/website/nav-logo.png'} alt="" className="hidden h-10 w-10 rounded-lg object-cover sm:block" style={{ border: '1px solid var(--hairline)' }} />
                       <div className="min-w-0 flex-1">

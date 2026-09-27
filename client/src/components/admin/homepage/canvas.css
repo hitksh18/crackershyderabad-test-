@@ -314,6 +314,21 @@
   }
 }
 
+/* =========================================================================
+   PORTRAIT DESKTOP (desktop-portrait detector — see src/admin-portrait.css:
+   portrait orientation + fine pointer + tall viewport; physical resolution
+   is NOT trusted, so no min-width gate).
+   Controls stack OVER the preview instead of squeezing into two narrow
+   panels. Internal desktop scrolling is preserved (unlike the <=1023px
+   rule below which switches to page scroll), and the preview keeps full
+   width so homepage designs remain inspectable. Landscape/mobile untouched.
+   ========================================================================= */
+@media (orientation: portrait) and (hover: hover) and (pointer: fine) and (min-height: 900px) {
+  .cv-workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 /* ================= CONTAINER / SECTIONS ================= */
 .cv-container {
   width: 100%;

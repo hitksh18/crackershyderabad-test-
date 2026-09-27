@@ -76,6 +76,12 @@ const ALLOWED_ORIGINS = [
     .split(',')
     .map((o) => o.trim())
     .filter(Boolean),
+  // Aliases requested by deployment docs — same allow-list, friendlier names.
+  ...(process.env.CORS_ORIGIN || '')
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean),
+  ...[process.env.CLIENT_URL, process.env.FRONTEND_URL].map((o) => (o || '').trim()).filter(Boolean),
 ];
 
 const corsOptions = {
@@ -314,7 +320,8 @@ app.post(
     try {
       const { publicUrl, absolutePath, filename: storedFilename } = await storeMedia(buffer, dir, finalName);
       const destDir = path.join(getMediaRoot(), dir);
-      console.log(`[upload] dir=${dir} requestedDir=${requestedDir} mimetype=${req.file.mimetype} originalName=${req.file.originalname} size=${buffer.length} upscale=${shouldUpscale} watermark=${shouldWatermark}`);
+      const safeOriginal = String(req.file.originalname || '').replace(/[\r\n\t]+/g, ' ').slice(0, 120);
+      console.log(`[upload] dir=${dir} mimetype=${req.file.mimetype} originalName=${safeOriginal} size=${buffer.length} upscale=${shouldUpscale} watermark=${shouldWatermark}`);
       console.log(`[upload] generatedFilename=${finalName} storedFilename=${storedFilename} destDir=${destDir} absolutePath=${absolutePath}`);
       console.log(`[upload] ${dir}/${storedFilename} → ${publicUrl}`);
       return res.json({ url: publicUrl, publicUrl, dir, filename: storedFilename });
@@ -1068,7 +1075,9 @@ app.post('/api/orders/sms', notifyLimiter, requireFirebase, async (req, res) => 
       country: '91',
     });
 
-    const response = await fetch(`https://api.msg91.com/api/sendhttp.php?${params.toString()}`);
+    const response = await fetch(`https://api.msg91.com/api/sendhttp.php?${params.toString()}`, {
+      signal: AbortSignal.timeout(10000),
+    });
     const text = await response.text();
     // Log the outcome, not the provider payload, which can echo the auth key.
     console.log(`[SMS] ${type} for order ${order.id}: ${response.ok ? 'sent' : 'provider error'}`);
@@ -1087,7 +1096,7 @@ app.post('/api/orders/sms', notifyLimiter, requireFirebase, async (req, res) => 
 app.use((err, req, res, next) => {
   if (err instanceof multer.MulterError) {
     const message =
-      err.code === 'LIMIT_FILE_SIZE' ? 'Image must be 5MB or smaller' : 'Upload failed';
+      err.code === 'LIMIT_FILE_SIZE' ? 'Image must be 6MB or smaller' : 'Upload failed';
     return res.status(400).json({ error: message });
   }
 
@@ -1097,21 +1106,53 @@ app.use((err, req, res, next) => {
 
   if (err) {
     console.error('Unhandled error:', err);
+    // Never leak internals to browsers in production; 400 carries the safe
+    // validation message, anything else becomes a generic 500.
+    if (process.env.NODE_ENV === 'production') {
+      const status = err.status && Number.isInteger(err.status) ? err.status : 500;
+      if (status >= 500) return res.status(status).json({ error: 'Something went wrong. Please try again.' });
+    }
     return res.status(400).json({ error: err.message || 'Request failed' });
   }
 
   return next();
 });
 
-// as a serverless function via api/index.js — binding a port there would error.
-// Standard Node entry point: process managers such as PM2 run this file.
-const PORT = Number(process.env.PORT || process.env.API_PORT || 3001);
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Admin API server running on port ${PORT}`);
-  console.log(`CORS allow-list: ${ALLOWED_ORIGINS.join(', ')}`);
-  if (!firebaseInitialized) {
-    console.log('Warning: Firebase Admin SDK not initialized. Add FIREBASE_SERVICE_ACCOUNT_KEY secret.');
-  }
+// Unknown /api/* routes must be JSON (Nginx serves the SPA for the rest,
+// so a missing API route would otherwise fall through to index.html).
+app.use('/api', (req, res) => {
+  return res.status(404).json({ error: 'Not found' });
 });
+
+// Standard Node entry point: process managers such as PM2 run this file.
+// Only bind when executed directly so `require('./server')` (tests) stays side-effect free.
+const PORT = Number(process.env.PORT || process.env.API_PORT || 3001);
+let server = null;
+if (require.main === module) {
+  server = app.listen(PORT, '127.0.0.1', () => {
+    console.log(`Admin API server running on port ${PORT}`);
+    console.log(`CORS allow-list: ${ALLOWED_ORIGINS.join(', ')}`);
+    if (!firebaseInitialized) {
+      console.log('Warning: Firebase Admin SDK not initialized. Add FIREBASE_SERVICE_ACCOUNT_KEY secret.');
+    }
+  });
+}
+
+// Graceful shutdown for PM2 / systemd: finish in-flight requests, then exit.
+const shutdown = (signal) => {
+  console.log(`Received ${signal}, closing HTTP server...`);
+  if (!server) process.exit(0);
+  server.close((err) => {
+    if (err) {
+      console.error('Error during shutdown:', err.message);
+      process.exit(1);
+    }
+    process.exit(0);
+  });
+  // Force-exit if connections hang (PM2 kill_timeout is 10s in ecosystem file).
+  setTimeout(() => process.exit(0), 9000).unref();
+};
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
 
 module.exports = app;

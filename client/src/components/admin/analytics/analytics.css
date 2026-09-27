@@ -712,3 +712,20 @@
 #ana-pages {
   scroll-margin-top: 70px;
 }
+
+/* =========================================================================
+   PORTRAIT DESKTOP (desktop-portrait detector — see src/admin-portrait.css:
+   portrait orientation + fine pointer + tall viewport; physical resolution
+   is NOT trusted, so no min-width gate).
+   The two large chart pairs (Traffic + Orders/Revenue, Journey + Live
+   pulse) and the detail table pair stack full-width so charts breathe and
+   the tall viewport is used. KPI grids stay 2-column and the 3-up groups
+   stay 2-column, so the page is not a single narrow column. Unlayered, so
+   this wins over the min-width:1024px .ana-grid-2 rule only inside the
+   portrait query; landscape/mobile are untouched.
+   ========================================================================= */
+@media (orientation: portrait) and (hover: hover) and (pointer: fine) and (min-height: 900px) {
+  .ana-grid-2 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
